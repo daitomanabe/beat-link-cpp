@@ -1,11 +1,6 @@
 /**
  * Beat Link Python Bindings (nanobind)
  *
- * Per INTRODUCTION_JAVA_TO_CPP.md Section 2.2:
- * - Uses nanobind for NumPy interop
- * - std::span for zero-copy array passing
- * - Enables AI/PyTorch integration
- *
  * Build with:
  *   cmake .. -DBEATLINK_BUILD_PYTHON=ON
  *   make beatlink_py
@@ -25,6 +20,8 @@
 #include <nanobind/stl/function.h>
 #include <memory>
 #include <mutex>
+#include <sstream>
+#include <iomanip>
 
 #include <beatlink/BeatLink.hpp>
 
@@ -179,10 +176,11 @@ NB_MODULE(beatlink_py, m) {
         .def_ro("next_beat_ms", &PyBeat::next_beat_ms, "Time until next beat (ms)")
         .def_ro("next_bar_ms", &PyBeat::next_bar_ms, "Time until next bar (ms)")
         .def("__repr__", [](const PyBeat& b) {
-            return std::format(
-                "<Beat device={} bpm={:.1f} beat={}/4>",
-                b.device_number, b.effective_bpm, b.beat_in_bar
-            );
+            std::ostringstream oss;
+            oss << "<Beat device=" << b.device_number
+                << " bpm=" << std::fixed << std::setprecision(1) << b.effective_bpm
+                << " beat=" << b.beat_in_bar << "/4>";
+            return oss.str();
         });
 
     // PyDevice struct
@@ -192,10 +190,10 @@ NB_MODULE(beatlink_py, m) {
         .def_ro("address", &PyDevice::address, "IP address")
         .def_ro("is_opus_quad", &PyDevice::is_opus_quad, "Is this an Opus Quad")
         .def("__repr__", [](const PyDevice& d) {
-            return std::format(
-                "<Device #{} '{}' @ {}>",
-                d.device_number, d.device_name, d.address
-            );
+            std::ostringstream oss;
+            oss << "<Device #" << d.device_number
+                << " '" << d.device_name << "' @ " << d.address << ">";
+            return oss.str();
         });
 
     // DeviceFinder functions

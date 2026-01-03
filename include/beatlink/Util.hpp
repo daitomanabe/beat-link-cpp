@@ -5,45 +5,13 @@
 #include <vector>
 #include <string>
 #include <cstring>
-#include <span>
-#include <concepts>
 #include <optional>
-#include <format>
-#include <source_location>
+#include <sstream>
 
 namespace beatlink {
 
 // ============================================================================
-// C++20 Concepts (per INTRODUCTION_JAVA_TO_CPP.md)
-// ============================================================================
-
-/**
- * Concept: Type that can be used as a byte buffer
- */
-template<typename T>
-concept ByteBuffer = requires(T t) {
-    { t.data() } -> std::convertible_to<const uint8_t*>;
-    { t.size() } -> std::convertible_to<size_t>;
-};
-
-/**
- * Concept: Type that can receive beat updates
- */
-template<typename T>
-concept BeatReceiver = requires(T t, double bpm, int beatInBar) {
-    { t.onBeat(bpm, beatInBar) } -> std::same_as<void>;
-};
-
-/**
- * Concept: Type that can be serialized to JSON
- */
-template<typename T>
-concept JsonSerializable = requires(T t) {
-    { t.toJson() } -> std::convertible_to<std::string>;
-};
-
-// ============================================================================
-// JSONL Structured Logging (per INTRODUCTION_JAVA_TO_CPP.md Section 2.3)
+// JSONL Structured Logging
 // ============================================================================
 
 enum class LogLevel {
@@ -70,8 +38,12 @@ struct LogEntry {
             case LogLevel::Warning: level_str = "warning"; break;
             case LogLevel::Error:   level_str = "error"; break;
         }
-        return std::format(R"({{"level":"{}","message":"{}","source":"{}","timestamp_ms":{}}})",
-                          level_str, message, source, timestamp_ms);
+        std::ostringstream oss;
+        oss << R"({"level":")" << level_str
+            << R"(","message":")" << message
+            << R"(","source":")" << source
+            << R"(","timestamp_ms":)" << timestamp_ms << "}";
+        return oss.str();
     }
 };
 
@@ -82,12 +54,6 @@ struct LogEntry {
 /**
  * Utility functions for the Beat Link protocol.
  * Ported from org.deepsymmetry.beatlink.Util
- *
- * Updated for C++20 per INTRODUCTION_JAVA_TO_CPP.md:
- * - std::span for buffer access
- * - std::format for string formatting
- * - std::optional for error handling
- * - Concepts for template constraints
  */
 class Util {
 public:
@@ -117,19 +83,20 @@ public:
 
     /**
      * Reconstructs a number from bytes in big-endian order.
-     * Uses std::span for safe buffer access (C++20).
      *
-     * @param buffer the byte span containing the packet data
+     * @param buffer the byte buffer containing the packet data
+     * @param bufferSize the size of the buffer
      * @param start the index of the first byte containing a numeric value
      * @param length the number of bytes making up the value
      * @return the reconstructed number, or std::nullopt on error
      */
-    [[nodiscard]] static std::optional<int64_t> bytesToNumber(
-        std::span<const uint8_t> buffer,
+    [[nodiscard]] static std::optional<int64_t> bytesToNumberSafe(
+        const uint8_t* buffer,
+        size_t bufferSize,
         size_t start,
         size_t length
     ) noexcept {
-        if (start + length > buffer.size()) {
+        if (start + length > bufferSize) {
             return std::nullopt;
         }
         int64_t result = 0;
@@ -139,7 +106,6 @@ public:
         return result;
     }
 
-    // Legacy overload for raw pointers (deprecated, prefer std::span)
     [[nodiscard]] static int64_t bytesToNumber(const uint8_t* buffer, size_t start, size_t length) noexcept {
         int64_t result = 0;
         for (size_t i = start; i < start + length; ++i) {
@@ -155,12 +121,13 @@ public:
     /**
      * Reconstructs a number from bytes in little-endian order.
      */
-    [[nodiscard]] static std::optional<int64_t> bytesToNumberLittleEndian(
-        std::span<const uint8_t> buffer,
+    [[nodiscard]] static std::optional<int64_t> bytesToNumberLittleEndianSafe(
+        const uint8_t* buffer,
+        size_t bufferSize,
         size_t start,
         size_t length
     ) noexcept {
-        if (start + length > buffer.size()) {
+        if (start + length > bufferSize) {
             return std::nullopt;
         }
         int64_t result = 0;
@@ -170,7 +137,6 @@ public:
         return result;
     }
 
-    // Legacy overload
     [[nodiscard]] static int64_t bytesToNumberLittleEndian(const uint8_t* buffer, size_t start, size_t length) noexcept {
         int64_t result = 0;
         for (size_t i = start + length; i > start; --i) {
@@ -180,10 +146,10 @@ public:
     }
 
     /**
-     * Writes a number to the specified byte span in big-endian order.
+     * Writes a number to the specified byte buffer in big-endian order.
      */
-    static void numberToBytes(int number, std::span<uint8_t> buffer, size_t start, size_t length) noexcept {
-        if (start + length > buffer.size()) {
+    static void numberToBytes(int number, uint8_t* buffer, size_t bufferSize, size_t start, size_t length) noexcept {
+        if (start + length > bufferSize) {
             return;
         }
         for (size_t i = start + length; i > start; --i) {
@@ -192,7 +158,6 @@ public:
         }
     }
 
-    // Legacy overload
     static void numberToBytes(int number, uint8_t* buffer, size_t start, size_t length) noexcept {
         for (size_t i = start + length; i > start; --i) {
             buffer[i - 1] = static_cast<uint8_t>(number & 0xff);
@@ -223,19 +188,11 @@ public:
 
     /**
      * Validate that a packet starts with the magic header.
-     * Uses std::span for safe buffer access.
      *
-     * @param data the packet data as a span
+     * @param data the packet data
+     * @param length the length of the data
      * @return true if the packet has a valid header
      */
-    [[nodiscard]] static bool validateHeader(std::span<const uint8_t> data) noexcept {
-        if (data.size() < MAGIC_HEADER.size()) {
-            return false;
-        }
-        return std::memcmp(data.data(), MAGIC_HEADER.data(), MAGIC_HEADER.size()) == 0;
-    }
-
-    // Legacy overload
     [[nodiscard]] static bool validateHeader(const uint8_t* data, size_t length) noexcept {
         if (length < MAGIC_HEADER.size()) {
             return false;
@@ -247,14 +204,13 @@ public:
      * Get the packet type byte from a packet.
      * Returns std::optional for safe error handling.
      */
-    [[nodiscard]] static std::optional<uint8_t> getPacketType(std::span<const uint8_t> data) noexcept {
-        if (data.size() <= static_cast<size_t>(PACKET_TYPE_OFFSET)) {
+    [[nodiscard]] static std::optional<uint8_t> getPacketTypeSafe(const uint8_t* data, size_t length) noexcept {
+        if (length <= static_cast<size_t>(PACKET_TYPE_OFFSET)) {
             return std::nullopt;
         }
         return data[PACKET_TYPE_OFFSET];
     }
 
-    // Legacy overload
     [[nodiscard]] static uint8_t getPacketType(const uint8_t* data, size_t length) noexcept {
         if (length <= static_cast<size_t>(PACKET_TYPE_OFFSET)) {
             return 0;
@@ -293,19 +249,19 @@ public:
     }
 
     /**
-     * Extract a string from a byte span.
+     * Extract a string from a byte buffer.
      */
-    [[nodiscard]] static std::optional<std::string> extractString(
-        std::span<const uint8_t> buffer,
+    [[nodiscard]] static std::optional<std::string> extractStringSafe(
+        const uint8_t* buffer,
+        size_t bufferSize,
         size_t offset,
         size_t length
     ) noexcept {
-        if (offset + length > buffer.size()) {
+        if (offset + length > bufferSize) {
             return std::nullopt;
         }
-        std::string result(reinterpret_cast<const char*>(buffer.data() + offset), length);
+        std::string result(reinterpret_cast<const char*>(buffer + offset), length);
         // Trim null characters and whitespace
-        // Note: Can't use find_last_not_of with embedded null in literal, so trim manually
         while (!result.empty() && (result.back() == '\0' || result.back() == ' ' ||
                result.back() == '\t' || result.back() == '\n' || result.back() == '\r')) {
             result.pop_back();
@@ -313,7 +269,6 @@ public:
         return result;
     }
 
-    // Legacy overload
     [[nodiscard]] static std::string extractString(const uint8_t* buffer, size_t offset, size_t length) noexcept {
         std::string result(reinterpret_cast<const char*>(buffer + offset), length);
         // Trim null characters and whitespace manually
@@ -325,29 +280,21 @@ public:
     }
 
     /**
-     * Format a log message using std::format (C++20).
-     */
-    template<typename... Args>
-    [[nodiscard]] static std::string formatLog(
-        std::format_string<Args...> fmt,
-        Args&&... args
-    ) {
-        return std::format(fmt, std::forward<Args>(args)...);
-    }
-
-    /**
-     * Create a JSONL log entry with source location (C++20).
+     * Create a JSONL log entry.
      */
     [[nodiscard]] static LogEntry createLogEntry(
         LogLevel level,
         const std::string& message,
         int64_t timestamp_ms,
-        const std::source_location& loc = std::source_location::current()
+        const char* file = "",
+        int line = 0
     ) {
+        std::ostringstream oss;
+        oss << file << ":" << line;
         return LogEntry{
             level,
             message,
-            std::format("{}:{}", loc.file_name(), loc.line()),
+            oss.str(),
             timestamp_ms
         };
     }

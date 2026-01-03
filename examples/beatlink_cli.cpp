@@ -1,10 +1,6 @@
 /**
  * Beat Link C++ CLI - Command-Line Interface
  *
- * Per INTRODUCTION_JAVA_TO_CPP.md Section 7 (Deliverables):
- * - CLI Tool with JSONL I/O
- * - --schema support for AI agent introspection
- *
  * Usage:
  *   beatlink_cli --schema           # Output API schema as JSON
  *   beatlink_cli --listen           # Listen for devices and beats (JSONL output)
@@ -12,6 +8,8 @@
  */
 
 #include <iostream>
+#include <sstream>
+#include <iomanip>
 #include <string>
 #include <csignal>
 #include <atomic>
@@ -67,27 +65,27 @@ void listenJsonl() {
 
     // Set up device found listener (JSONL output)
     deviceFinder.addDeviceFoundListener([](const beatlink::DeviceAnnouncement& device) {
-        std::cout << std::format(
-            R"({{"event":"device_found","timestamp_ms":{},"device":{{"number":{},"name":"{}","address":"{}"}}}})",
-            std::chrono::duration_cast<std::chrono::milliseconds>(
-                std::chrono::system_clock::now().time_since_epoch()
-            ).count(),
-            device.getDeviceNumber(),
-            device.getDeviceName(),
-            device.getAddress().to_string()
-        ) << std::endl;
+        std::ostringstream oss;
+        oss << R"({"event":"device_found","timestamp_ms":)"
+            << std::chrono::duration_cast<std::chrono::milliseconds>(
+                   std::chrono::system_clock::now().time_since_epoch()
+               ).count()
+            << R"(,"device":{"number":)" << device.getDeviceNumber()
+            << R"(,"name":")" << device.getDeviceName()
+            << R"(","address":")" << device.getAddress().to_string() << "\"}}";
+        std::cout << oss.str() << std::endl;
     });
 
     // Set up device lost listener (JSONL output)
     deviceFinder.addDeviceLostListener([](const beatlink::DeviceAnnouncement& device) {
-        std::cout << std::format(
-            R"({{"event":"device_lost","timestamp_ms":{},"device":{{"number":{},"name":"{}"}}}})",
-            std::chrono::duration_cast<std::chrono::milliseconds>(
-                std::chrono::system_clock::now().time_since_epoch()
-            ).count(),
-            device.getDeviceNumber(),
-            device.getDeviceName()
-        ) << std::endl;
+        std::ostringstream oss;
+        oss << R"({"event":"device_lost","timestamp_ms":)"
+            << std::chrono::duration_cast<std::chrono::milliseconds>(
+                   std::chrono::system_clock::now().time_since_epoch()
+               ).count()
+            << R"(,"device":{"number":)" << device.getDeviceNumber()
+            << R"(,"name":")" << device.getDeviceName() << "\"}}";
+        std::cout << oss.str() << std::endl;
     });
 
     // Set up beat listener (JSONL output)
@@ -99,49 +97,50 @@ void listenJsonl() {
         );
         int safeBeat = beatlink::SafetyCurtain::sanitizeBeat(beat.getBeatWithinBar());
 
-        std::cout << std::format(
-            R"({{"event":"beat","timestamp_ms":{},"device":{},"bpm":{:.2f},"pitch_percent":{:.2f},"beat_in_bar":{}}})",
-            std::chrono::duration_cast<std::chrono::milliseconds>(
-                std::chrono::system_clock::now().time_since_epoch()
-            ).count(),
-            beat.getDeviceNumber(),
-            safeBpm,
-            safePitch,
-            safeBeat
-        ) << std::endl;
+        std::ostringstream oss;
+        oss << std::fixed << std::setprecision(2);
+        oss << R"({"event":"beat","timestamp_ms":)"
+            << std::chrono::duration_cast<std::chrono::milliseconds>(
+                   std::chrono::system_clock::now().time_since_epoch()
+               ).count()
+            << R"(,"device":)" << beat.getDeviceNumber()
+            << R"(,"bpm":)" << safeBpm
+            << R"(,"pitch_percent":)" << safePitch
+            << R"(,"beat_in_bar":)" << safeBeat << "}";
+        std::cout << oss.str() << std::endl;
     });
 
     // Start finders
     if (!deviceFinder.start()) {
-        std::cerr << std::format(
-            R"({{"event":"error","timestamp_ms":{},"message":"Failed to start DeviceFinder","source":"beatlink_cli.cpp:{}}})",
-            getCurrentTimeMs(),
-            __LINE__
-        ) << std::endl;
+        std::ostringstream oss;
+        oss << R"({"event":"error","timestamp_ms":)" << getCurrentTimeMs()
+            << R"(,"message":"Failed to start DeviceFinder","source":"beatlink_cli.cpp:)" << __LINE__ << "\"}";
+        std::cerr << oss.str() << std::endl;
         return;
     }
 
-    std::cout << std::format(
-        R"({{"event":"started","timestamp_ms":{},"component":"DeviceFinder","port":{}}})",
-        getCurrentTimeMs(),
-        beatlink::Ports::ANNOUNCEMENT
-    ) << std::endl;
+    {
+        std::ostringstream oss;
+        oss << R"({"event":"started","timestamp_ms":)" << getCurrentTimeMs()
+            << R"(,"component":"DeviceFinder","port":)" << beatlink::Ports::ANNOUNCEMENT << "}";
+        std::cout << oss.str() << std::endl;
+    }
 
     if (!beatFinder.start()) {
-        std::cerr << std::format(
-            R"({{"event":"error","timestamp_ms":{},"message":"Failed to start BeatFinder","source":"beatlink_cli.cpp:{}}})",
-            getCurrentTimeMs(),
-            __LINE__
-        ) << std::endl;
+        std::ostringstream oss;
+        oss << R"({"event":"error","timestamp_ms":)" << getCurrentTimeMs()
+            << R"(,"message":"Failed to start BeatFinder","source":"beatlink_cli.cpp:)" << __LINE__ << "\"}";
+        std::cerr << oss.str() << std::endl;
         deviceFinder.stop();
         return;
     }
 
-    std::cout << std::format(
-        R"({{"event":"started","timestamp_ms":{},"component":"BeatFinder","port":{}}})",
-        getCurrentTimeMs(),
-        beatlink::Ports::BEAT
-    ) << std::endl;
+    {
+        std::ostringstream oss;
+        oss << R"({"event":"started","timestamp_ms":)" << getCurrentTimeMs()
+            << R"(,"component":"BeatFinder","port":)" << beatlink::Ports::BEAT << "}";
+        std::cout << oss.str() << std::endl;
+    }
 
     // Main loop
     while (running) {
@@ -152,10 +151,11 @@ void listenJsonl() {
     beatFinder.stop();
     deviceFinder.stop();
 
-    std::cout << std::format(
-        R"({{"event":"stopped","timestamp_ms":{}}})",
-        getCurrentTimeMs()
-    ) << std::endl;
+    {
+        std::ostringstream oss;
+        oss << R"({"event":"stopped","timestamp_ms":)" << getCurrentTimeMs() << "}";
+        std::cout << oss.str() << std::endl;
+    }
 }
 
 void listenHuman() {
@@ -189,13 +189,11 @@ void listenHuman() {
         );
         int beatInBar = beatlink::SafetyCurtain::sanitizeBeat(beat.getBeatWithinBar());
 
-        std::cout << std::format(
-            "[BEAT] Device {:2d} | {:6.1f} BPM | Beat {:d}/4 | Pitch {:+6.2f}%",
-            beat.getDeviceNumber(),
-            bpm,
-            beatInBar,
-            pitch
-        ) << std::endl;
+        std::cout << "[BEAT] Device " << std::setw(2) << beat.getDeviceNumber()
+                  << " | " << std::fixed << std::setprecision(1) << std::setw(6) << bpm << " BPM"
+                  << " | Beat " << beatInBar << "/4"
+                  << " | Pitch " << std::showpos << std::setprecision(2) << std::setw(6) << pitch << "%"
+                  << std::noshowpos << std::endl;
     });
 
     // Start finders

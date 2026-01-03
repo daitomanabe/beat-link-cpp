@@ -2,7 +2,6 @@
 
 /**
  * API Introspection / Self-Description System
- * Per INTRODUCTION_JAVA_TO_CPP.md Section 2.1
  *
  * This module enables AI agents to discover the Beat Link API
  * without reading source code. When queried with {"cmd": "describe_api"}
@@ -11,7 +10,7 @@
 
 #include <string>
 #include <vector>
-#include <format>
+#include <sstream>
 #include "PacketTypes.hpp"
 
 namespace beatlink {
@@ -29,18 +28,18 @@ struct ParamInfo {
     bool has_range = false;
 
     [[nodiscard]] std::string toJson() const {
-        std::string json = std::format(
-            R"({{"name":"{}","type":"{}","description":"{}")",
-            name, type, description
-        );
+        std::ostringstream oss;
+        oss << R"({"name":")" << name
+            << R"(","type":")" << type
+            << R"(","description":")" << description << "\"";
         if (!unit.empty()) {
-            json += std::format(R"(,"unit":"{}")", unit);
+            oss << R"(,"unit":")" << unit << "\"";
         }
         if (has_range) {
-            json += std::format(R"(,"min":{},"max":{})", min_value, max_value);
+            oss << R"(,"min":)" << min_value << R"(,"max":)" << max_value;
         }
-        json += "}";
-        return json;
+        oss << "}";
+        return oss.str();
     }
 };
 
@@ -61,10 +60,12 @@ struct CommandInfo {
         }
         params_json += "]";
 
-        return std::format(
-            R"({{"name":"{}","description":"{}","params":{},"returns":"{}"}})",
-            name, description, params_json, returns
-        );
+        std::ostringstream oss;
+        oss << R"({"name":")" << name
+            << R"(","description":")" << description
+            << R"(","params":)" << params_json
+            << R"(,"returns":")" << returns << "\"}";
+        return oss.str();
     }
 };
 
@@ -78,15 +79,15 @@ struct IoInfo {
     std::string shape;         // For tensor data: "[N, 4]" etc.
 
     [[nodiscard]] std::string toJson() const {
-        std::string json = std::format(
-            R"({{"name":"{}","description":"{}","format":"{}")",
-            name, description, format
-        );
+        std::ostringstream oss;
+        oss << R"({"name":")" << name
+            << R"(","description":")" << description
+            << R"(","format":")" << format << "\"";
         if (!shape.empty()) {
-            json += std::format(R"(,"shape":"{}")", shape);
+            oss << R"(,"shape":")" << shape << "\"";
         }
-        json += "}";
-        return json;
+        oss << "}";
+        return oss.str();
     }
 };
 
@@ -128,10 +129,14 @@ public:
         }
         outputs_json += "]";
 
-        return std::format(
-            R"({{"name":"{}","version":"{}","description":"{}","commands":{},"inputs":{},"outputs":{}}})",
-            name, version, description, commands_json, inputs_json, outputs_json
-        );
+        std::ostringstream oss;
+        oss << R"({"name":")" << name
+            << R"(","version":")" << version
+            << R"(","description":")" << description
+            << R"(","commands":)" << commands_json
+            << R"(,"inputs":)" << inputs_json
+            << R"(,"outputs":)" << outputs_json << "}";
+        return oss.str();
     }
 };
 
@@ -143,7 +148,7 @@ public:
     ApiSchema schema;
     schema.name = "beatlink";
     schema.version = Version::STRING;
-    schema.description = "Pioneer DJ Link protocol library for C++20. "
+    schema.description = "Pioneer DJ Link protocol library for C++. "
                          "Discovers DJ devices on the network via UDP and receives beat/tempo information.";
 
     // Commands
