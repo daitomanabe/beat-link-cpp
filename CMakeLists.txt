@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.15)
 project(beatlink VERSION 0.2.0 LANGUAGES CXX)
 
-# C++20 Strict (per INTRODUCTION_JAVA_TO_CPP.md)
-set(CMAKE_CXX_STANDARD 20)
+# C++17 Standard
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
