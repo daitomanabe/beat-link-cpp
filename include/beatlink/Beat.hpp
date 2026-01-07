@@ -100,18 +100,12 @@ public:
      * Check if this device is the tempo master.
      * Note: In Java this requires VirtualCdj to be running.
      */
-    bool isTempoMaster() const override {
-        // This requires VirtualCdj context in the full implementation
-        return false;
-    }
+    bool isTempoMaster() const override;
 
     /**
      * Check if this device is synced to the master.
      */
-    bool isSynced() const override {
-        // This requires VirtualCdj context in the full implementation
-        return false;
-    }
+    bool isSynced() const override;
 
     /**
      * Beats never yield the master role.
@@ -130,18 +124,7 @@ public:
     /**
      * Get a string representation.
      */
-    std::string toString() const override {
-        char buffer[256];
-        snprintf(buffer, sizeof(buffer),
-                 "Beat: Device %d, name: %s, pitch: %+.2f%%, track BPM: %.1f, effective BPM: %.1f, beat within bar: %d",
-                 deviceNumber_,
-                 deviceName_.c_str(),
-                 Util::pitchToPercentage(pitch_),
-                 bpm_ / 100.0,
-                 getEffectiveTempo(),
-                 getBeatWithinBar());
-        return std::string(buffer);
-    }
+    std::string toString() const override;
 
 private:
     int pitch_;

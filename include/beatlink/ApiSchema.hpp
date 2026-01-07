@@ -178,10 +178,114 @@ public:
             "void"
         },
         {
+            "start_virtual_cdj",
+            "Start receiving device status updates (UDP port 50002)",
+            {},
+            "bool (success)"
+        },
+        {
+            "stop_virtual_cdj",
+            "Stop receiving device status updates",
+            {},
+            "void"
+        },
+        {
+            "start_metadata_finder",
+            "Start track metadata lookup",
+            {},
+            "bool (running)"
+        },
+        {
+            "stop_metadata_finder",
+            "Stop track metadata lookup",
+            {},
+            "void"
+        },
+        {
+            "start_beat_grid_finder",
+            "Start beat grid lookup",
+            {},
+            "bool (running)"
+        },
+        {
+            "stop_beat_grid_finder",
+            "Stop beat grid lookup",
+            {},
+            "void"
+        },
+        {
+            "start_waveform_finder",
+            "Start waveform lookup",
+            {},
+            "bool (running)"
+        },
+        {
+            "stop_waveform_finder",
+            "Stop waveform lookup",
+            {},
+            "void"
+        },
+        {
+            "start_signature_finder",
+            "Start time signature analysis",
+            {},
+            "bool (running)"
+        },
+        {
+            "stop_signature_finder",
+            "Stop time signature analysis",
+            {},
+            "void"
+        },
+        {
+            "start_time_finder",
+            "Start track time interpolation",
+            {},
+            "bool (running)"
+        },
+        {
+            "stop_time_finder",
+            "Stop track time interpolation",
+            {},
+            "void"
+        },
+        {
             "get_devices",
             "Get list of currently discovered DJ devices",
             {},
             "array of DeviceInfo"
+        },
+        {
+            "get_track_metadata",
+            "Get latest track metadata for a player",
+            {
+                {"player", "int", "Player number (1-4)", "", 0, 0, false}
+            },
+            "TrackMetadata or null"
+        },
+        {
+            "get_track_position",
+            "Get latest track position for a player",
+            {
+                {"player", "int", "Player number (1-4)", "", 0, 0, false}
+            },
+            "TrackPosition or null"
+        },
+        {
+            "get_track_time",
+            "Get interpolated track time for a player",
+            {
+                {"player", "int", "Player number (1-4)", "", 0, 0, false}
+            },
+            "int64 (ms)"
+        },
+        {
+            "get_signature",
+            "Get latest time signature for a player",
+            {
+                {"player", "int", "Player number (1-4)", "", 0, 0, false}
+            },
+            "string"
         },
         {
             "add_beat_listener",
@@ -198,6 +302,31 @@ public:
                 {"listener_id", "int", "ID returned from add_beat_listener", "", 0, 0, false}
             },
             "bool (success)"
+        },
+        {
+            "add_track_metadata_listener",
+            "Register a callback for track metadata updates",
+            {
+                {"callback", "function", "Function called on metadata changes", "", 0, 0, false}
+            },
+            "listener_id (int)"
+        },
+        {
+            "add_track_position_listener",
+            "Register a callback for track position updates",
+            {
+                {"player", "int", "Player number (1-4)", "", 0, 0, false},
+                {"callback", "function", "Function called on position changes", "", 0, 0, false}
+            },
+            "listener_id (int)"
+        },
+        {
+            "add_signature_listener",
+            "Register a callback for signature updates",
+            {
+                {"callback", "function", "Function called on signature changes", "", 0, 0, false}
+            },
+            "listener_id (int)"
         },
         {
             "set_time",

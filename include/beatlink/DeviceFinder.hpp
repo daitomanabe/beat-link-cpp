@@ -15,21 +15,18 @@
 
 #include "DeviceAnnouncement.hpp"
 #include "DeviceReference.hpp"
+#include "DeviceAnnouncementListener.hpp"
+#include "LifecycleParticipant.hpp"
 #include "PacketTypes.hpp"
 #include "Util.hpp"
 
 namespace beatlink {
 
 /**
- * Callback type for device announcement events.
- */
-using DeviceAnnouncementCallback = std::function<void(const DeviceAnnouncement&)>;
-
-/**
  * Watches for devices to report their presence by broadcasting announcement packets on port 50000.
  * Ported from org.deepsymmetry.beatlink.DeviceFinder
  */
-class DeviceFinder {
+class DeviceFinder : public LifecycleParticipant {
 public:
     /**
      * The maximum age in milliseconds before a device is considered gone.
@@ -47,7 +44,7 @@ public:
     /**
      * Check if the finder is running.
      */
-    bool isRunning() const { return running_.load(); }
+    bool isRunning() const override { return running_.load(); }
 
     /**
      * Start listening for device announcements.
@@ -62,18 +59,29 @@ public:
     void stop();
 
     /**
+     * Discard any known devices and notify listeners that they were lost.
+     */
+    void flush();
+
+    /**
      * Get the timestamp when we started listening.
      */
-    std::chrono::steady_clock::time_point getStartTime() const {
-        return startTime_;
-    }
+    std::chrono::steady_clock::time_point getStartTime() const { return startTime_; }
 
     /**
      * Get the timestamp when we saw the first device.
      */
-    std::chrono::steady_clock::time_point getFirstDeviceTime() const {
-        return firstDeviceTime_;
-    }
+    std::chrono::steady_clock::time_point getFirstDeviceTime() const { return firstDeviceTime_; }
+
+    /**
+     * Check if any device on the network is limited to three metadata clients.
+     */
+    bool isAnyDeviceLimitedToThreeDatabaseClients() const { return limit3PlayersSeen_.load(); }
+
+    /**
+     * Check if a specific device is metadata-limited.
+     */
+    bool isDeviceMetadataLimited(const DeviceAnnouncement& announcement) const;
 
     /**
      * Get the current set of devices.
@@ -111,6 +119,16 @@ public:
     void addDeviceLostListener(DeviceAnnouncementCallback callback);
 
     /**
+     * Add a combined device announcement listener.
+     */
+    void addDeviceAnnouncementListener(const DeviceAnnouncementListenerPtr& listener);
+
+    /**
+     * Remove a combined device announcement listener.
+     */
+    void removeDeviceAnnouncementListener(const DeviceAnnouncementListenerPtr& listener);
+
+    /**
      * Clear all listeners.
      */
     void clearListeners();
@@ -136,6 +154,7 @@ private:
     std::atomic<bool> running_{false};
     std::chrono::steady_clock::time_point startTime_;
     std::chrono::steady_clock::time_point firstDeviceTime_;
+    std::atomic<bool> limit3PlayersSeen_{false};
 
     asio::io_context ioContext_;
     std::unique_ptr<asio::ip::udp::socket> socket_;
@@ -150,6 +169,7 @@ private:
     mutable std::mutex listenersMutex_;
     std::vector<DeviceAnnouncementCallback> foundListeners_;
     std::vector<DeviceAnnouncementCallback> lostListeners_;
+    std::vector<DeviceAnnouncementListenerPtr> announcementListeners_;
 
     std::array<uint8_t, 512> receiveBuffer_;
     asio::ip::udp::endpoint senderEndpoint_;

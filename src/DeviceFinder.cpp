@@ -1,5 +1,8 @@
 #include "beatlink/DeviceFinder.hpp"
+#include "beatlink/VirtualCdj.hpp"
+#include <algorithm>
 #include <iostream>
+#include <unordered_set>
 
 namespace beatlink {
 
@@ -31,6 +34,7 @@ bool DeviceFinder::start() {
         running_.store(true);
 
         receiverThread_ = std::thread(&DeviceFinder::receiverLoop, this);
+        deliverLifecycleAnnouncement(true);
         return true;
     } catch (const std::exception& e) {
         std::cerr << "DeviceFinder: Failed to start: " << e.what() << std::endl;
@@ -57,7 +61,12 @@ void DeviceFinder::stop() {
 
     socket_.reset();
 
-    // Notify lost for all devices
+    flush();
+
+    deliverLifecycleAnnouncement(false);
+}
+
+void DeviceFinder::flush() {
     std::vector<DeviceAnnouncement> lastDevices;
     {
         std::lock_guard<std::mutex> lock(devicesMutex_);
@@ -65,7 +74,10 @@ void DeviceFinder::stop() {
             lastDevices.push_back(pair.second);
         }
         devices_.clear();
+        firstDeviceTime_ = std::chrono::steady_clock::time_point{};
     }
+
+    limit3PlayersSeen_.store(false);
 
     for (const auto& device : lastDevices) {
         deliverLostAnnouncement(device);
@@ -117,15 +129,7 @@ void DeviceFinder::receiverLoop() {
 }
 
 void DeviceFinder::processPacket(const uint8_t* data, size_t length, const asio::ip::address_v4& sender) {
-    // Validate header
-    if (!Util::validateHeader(data, length)) {
-        return;
-    }
-
-    // Get packet type
-    uint8_t packetType = Util::getPacketType(data, length);
-    auto type = PacketTypes::lookup(Ports::ANNOUNCEMENT, packetType);
-
+    auto type = Util::validateHeader(std::span<const uint8_t>(data, length), Ports::ANNOUNCEMENT);
     if (!type) {
         return;
     }
@@ -148,6 +152,22 @@ void DeviceFinder::processPacket(const uint8_t* data, size_t length, const asio:
         } catch (const std::exception& e) {
             std::cerr << "DeviceFinder: Error processing announcement: " << e.what() << std::endl;
         }
+        return;
+    }
+
+    // Delegate special device-number packets to the VirtualCdj.
+    switch (*type) {
+        case PacketType::DEVICE_NUMBER_STAGE_1:
+        case PacketType::DEVICE_NUMBER_STAGE_2:
+        case PacketType::DEVICE_NUMBER_STAGE_3:
+        case PacketType::DEVICE_NUMBER_WILL_ASSIGN:
+        case PacketType::DEVICE_NUMBER_ASSIGN:
+        case PacketType::DEVICE_NUMBER_ASSIGNMENT_FINISHED:
+        case PacketType::DEVICE_NUMBER_IN_USE:
+            VirtualCdj::getInstance().handleSpecialAnnouncementPacket(*type, data, length, sender);
+            break;
+        default:
+            break;
     }
 }
 
@@ -234,6 +254,12 @@ std::vector<DeviceAnnouncement> DeviceFinder::getCurrentDevices() {
     return result;
 }
 
+bool DeviceFinder::isDeviceMetadataLimited(const DeviceAnnouncement& announcement) const {
+    static const std::unordered_set<std::string> kMetadataFlexibleDevices = {"CDJ-3000", "XDJ-AZ"};
+    return announcement.getDeviceNumber() < 7 &&
+           kMetadataFlexibleDevices.find(announcement.getDeviceName()) == kMetadataFlexibleDevices.end();
+}
+
 std::optional<DeviceAnnouncement> DeviceFinder::getLatestAnnouncementFrom(int deviceNumber) {
     auto devices = getCurrentDevices();
     for (const auto& device : devices) {
@@ -259,6 +285,24 @@ bool DeviceFinder::isAddressIgnored(const asio::ip::address_v4& address) const {
     return ignoredAddresses_.find(address.to_uint()) != ignoredAddresses_.end();
 }
 
+void DeviceFinder::addDeviceAnnouncementListener(const DeviceAnnouncementListenerPtr& listener) {
+    if (!listener) {
+        return;
+    }
+    std::lock_guard<std::mutex> lock(listenersMutex_);
+    announcementListeners_.push_back(listener);
+}
+
+void DeviceFinder::removeDeviceAnnouncementListener(const DeviceAnnouncementListenerPtr& listener) {
+    if (!listener) {
+        return;
+    }
+    std::lock_guard<std::mutex> lock(listenersMutex_);
+    announcementListeners_.erase(
+        std::remove(announcementListeners_.begin(), announcementListeners_.end(), listener),
+        announcementListeners_.end());
+}
+
 void DeviceFinder::addDeviceFoundListener(DeviceAnnouncementCallback callback) {
     std::lock_guard<std::mutex> lock(listenersMutex_);
     foundListeners_.push_back(std::move(callback));
@@ -273,13 +317,20 @@ void DeviceFinder::clearListeners() {
     std::lock_guard<std::mutex> lock(listenersMutex_);
     foundListeners_.clear();
     lostListeners_.clear();
+    announcementListeners_.clear();
 }
 
 void DeviceFinder::deliverFoundAnnouncement(const DeviceAnnouncement& announcement) {
+    if (isDeviceMetadataLimited(announcement)) {
+        limit3PlayersSeen_.store(true);
+    }
+
     std::vector<DeviceAnnouncementCallback> listeners;
+    std::vector<DeviceAnnouncementListenerPtr> announcementListeners;
     {
         std::lock_guard<std::mutex> lock(listenersMutex_);
         listeners = foundListeners_;
+        announcementListeners = announcementListeners_;
     }
 
     for (const auto& listener : listeners) {
@@ -289,13 +340,40 @@ void DeviceFinder::deliverFoundAnnouncement(const DeviceAnnouncement& announceme
             std::cerr << "DeviceFinder: Exception in found listener: " << e.what() << std::endl;
         }
     }
+
+    for (const auto& listener : announcementListeners) {
+        if (!listener) {
+            continue;
+        }
+        try {
+            listener->deviceFound(announcement);
+        } catch (const std::exception& e) {
+            std::cerr << "DeviceFinder: Exception in announcement listener: " << e.what() << std::endl;
+        }
+    }
 }
 
 void DeviceFinder::deliverLostAnnouncement(const DeviceAnnouncement& announcement) {
+    if (isDeviceMetadataLimited(announcement)) {
+        auto devices = getCurrentDevices();
+        bool anyLimited = false;
+        for (const auto& device : devices) {
+            if (isDeviceMetadataLimited(device)) {
+                anyLimited = true;
+                break;
+            }
+        }
+        if (!anyLimited) {
+            limit3PlayersSeen_.store(false);
+        }
+    }
+
     std::vector<DeviceAnnouncementCallback> listeners;
+    std::vector<DeviceAnnouncementListenerPtr> announcementListeners;
     {
         std::lock_guard<std::mutex> lock(listenersMutex_);
         listeners = lostListeners_;
+        announcementListeners = announcementListeners_;
     }
 
     for (const auto& listener : listeners) {
@@ -303,6 +381,17 @@ void DeviceFinder::deliverLostAnnouncement(const DeviceAnnouncement& announcemen
             listener(announcement);
         } catch (const std::exception& e) {
             std::cerr << "DeviceFinder: Exception in lost listener: " << e.what() << std::endl;
+        }
+    }
+
+    for (const auto& listener : announcementListeners) {
+        if (!listener) {
+            continue;
+        }
+        try {
+            listener->deviceLost(announcement);
+        } catch (const std::exception& e) {
+            std::cerr << "DeviceFinder: Exception in announcement listener: " << e.what() << std::endl;
         }
     }
 }

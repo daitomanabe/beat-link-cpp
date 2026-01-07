@@ -3,6 +3,8 @@
 #include "DeviceUpdate.hpp"
 #include "Util.hpp"
 
+#include <format>
+
 namespace beatlink {
 
 /**
@@ -43,6 +45,27 @@ enum class PlayState : uint8_t {
     SEARCHING = 9,
     SPUN_DOWN = 0x0e,
     ENDED = 0x11,
+    UNKNOWN = 0xff
+};
+
+/**
+ * Secondary play state values.
+ */
+enum class PlayState2 : uint8_t {
+    MOVING = 0x7a,
+    STOPPED = 0x7e,
+    OPUS_MOVING = 0xfa,
+    UNKNOWN = 0xff
+};
+
+/**
+ * Tertiary play state values.
+ */
+enum class PlayState3 : uint8_t {
+    NO_TRACK = 0x00,
+    PAUSED_OR_REVERSE = 0x01,
+    FORWARD_VINYL = 0x09,
+    FORWARD_CDJ = 0x0d,
     UNKNOWN = 0xff
 };
 
@@ -117,6 +140,18 @@ public:
         // Parse beat within bar (offset 0xa6)
         beatWithinBar_ = data[0xa6];
 
+        // Parse play states
+        playState1_ = parsePlayState1();
+        playState2_ = parsePlayState2();
+        playState3_ = parsePlayState3();
+
+        // Parse sync counter (offset 0x84, 4 bytes)
+        syncNumber_ = static_cast<int>(Util::bytesToNumber(data, 0x84, 4));
+
+        // Parse beat number (offset 0xa0, 4 bytes)
+        int64_t beatNumber = Util::bytesToNumber(data, 0xa0, 4);
+        beatNumber_ = (beatNumber == 0xffffffff) ? -1 : static_cast<int>(beatNumber);
+
         // Parse packet counter (offset 0xc8, 4 bytes)
         packetCounter_ = static_cast<int>(Util::bytesToNumber(data, 0xc8, 4));
     }
@@ -128,6 +163,8 @@ public:
     int getRekordboxId() const { return rekordboxId_; }
     int getTrackNumber() const { return trackNumber_; }
     int getPacketCounter() const { return packetCounter_; }
+    int getSyncNumber() const { return syncNumber_; }
+    int getBeatNumber() const { return beatNumber_; }
 
     // Status flags
     uint8_t getStatusFlags() const {
@@ -135,7 +172,11 @@ public:
     }
 
     bool isPlaying() const {
-        return (getStatusFlags() & PLAYING_FLAG) != 0;
+        if (packetBytes_.size() >= 0xd4) {
+            return (getStatusFlags() & PLAYING_FLAG) != 0;
+        }
+        return playState1_ == PlayState::PLAYING || playState1_ == PlayState::LOOPING ||
+               (playState1_ == PlayState::SEARCHING && playState2_ == PlayState2::MOVING);
     }
 
     bool isTempoMaster() const override {
@@ -152,6 +193,48 @@ public:
 
     bool isBpmOnlySynced() const {
         return (getStatusFlags() & BPM_SYNC_FLAG) != 0;
+    }
+
+    bool isLocalUsbLoaded() const {
+        return packetBytes_.size() > LOCAL_USB_STATE && packetBytes_[LOCAL_USB_STATE] == 0;
+    }
+
+    bool isLocalUsbUnloading() const {
+        return packetBytes_.size() > LOCAL_USB_STATE && packetBytes_[LOCAL_USB_STATE] == 2;
+    }
+
+    bool isLocalUsbEmpty() const {
+        return packetBytes_.size() > LOCAL_USB_STATE && packetBytes_[LOCAL_USB_STATE] == 4;
+    }
+
+    bool isLocalSdLoaded() const {
+        return packetBytes_.size() > LOCAL_SD_STATE && packetBytes_[LOCAL_SD_STATE] == 0;
+    }
+
+    bool isLocalSdUnloading() const {
+        return packetBytes_.size() > LOCAL_SD_STATE && packetBytes_[LOCAL_SD_STATE] == 2;
+    }
+
+    bool isLocalSdEmpty() const {
+        return packetBytes_.size() > LOCAL_SD_STATE && packetBytes_[LOCAL_SD_STATE] == 4;
+    }
+
+    bool isDiscSlotEmpty() const {
+        if (packetBytes_.size() <= LOCAL_CD_STATE) {
+            return true;
+        }
+        return (packetBytes_[LOCAL_CD_STATE] != 0x1e) && (packetBytes_[LOCAL_CD_STATE] != 0x11);
+    }
+
+    bool isDiscSlotAsleep() const {
+        return packetBytes_.size() > LOCAL_CD_STATE && packetBytes_[LOCAL_CD_STATE] == 1;
+    }
+
+    int getDiscTrackCount() const {
+        if (packetBytes_.size() <= 0x48) {
+            return 0;
+        }
+        return static_cast<int>(Util::bytesToNumber(packetBytes_.data(), 0x46, 2));
     }
 
     std::optional<int> getDeviceMasterIsBeingYieldedTo() const override {
@@ -197,11 +280,45 @@ public:
      * Get the current play state.
      */
     PlayState getPlayState() const {
+        return playState1_;
+    }
+
+    PlayState2 getPlayState2() const {
+        return playState2_;
+    }
+
+    PlayState3 getPlayState3() const {
+        return playState3_;
+    }
+
+    bool isPlayingForwards() const {
+        return playState1_ == PlayState::PLAYING && playState3_ != PlayState3::PAUSED_OR_REVERSE;
+    }
+
+    bool isPlayingBackwards() const {
+        return playState1_ == PlayState::PLAYING && playState3_ == PlayState3::PAUSED_OR_REVERSE;
+    }
+
+    std::string toString() const override {
+        return std::format(
+            "CdjStatus: Device {}, name: {}, playing: {}, master: {}, synced: {}, BPM: {:.2f}, effective BPM: {:.2f}, pitch: {:+.2f}%, beat: {}",
+            deviceNumber_,
+            deviceName_,
+            isPlaying() ? "true" : "false",
+            isTempoMaster() ? "true" : "false",
+            isSynced() ? "true" : "false",
+            bpm_ / 100.0,
+            getEffectiveTempo(),
+            Util::pitchToPercentage(pitch_),
+            beatWithinBar_);
+    }
+
+private:
+    PlayState parsePlayState1() const {
         if (packetBytes_.size() <= 0x7b) {
             return PlayState::UNKNOWN;
         }
-        uint8_t state = packetBytes_[0x7b];
-        switch (state) {
+        switch (packetBytes_[0x7b]) {
             case 0x00: return PlayState::NO_TRACK;
             case 0x02: return PlayState::LOADING;
             case 0x03: return PlayState::PLAYING;
@@ -216,24 +333,42 @@ public:
         }
     }
 
-    std::string toString() const override {
-        char buffer[512];
-        snprintf(buffer, sizeof(buffer),
-                 "CdjStatus: Device %d, name: %s, playing: %s, master: %s, synced: %s, "
-                 "BPM: %.2f, effective BPM: %.2f, pitch: %+.2f%%, beat: %d",
-                 deviceNumber_,
-                 deviceName_.c_str(),
-                 isPlaying() ? "true" : "false",
-                 isTempoMaster() ? "true" : "false",
-                 isSynced() ? "true" : "false",
-                 bpm_ / 100.0,
-                 getEffectiveTempo(),
-                 Util::pitchToPercentage(pitch_),
-                 beatWithinBar_);
-        return std::string(buffer);
+    PlayState2 parsePlayState2() const {
+        if (packetBytes_.size() <= 0x8b) {
+            return PlayState2::UNKNOWN;
+        }
+        switch (packetBytes_[0x8b]) {
+            case 0x6a:
+            case 0x7a:
+            case static_cast<uint8_t>(0xfa):
+                return PlayState2::MOVING;
+            case 0x6e:
+            case 0x7e:
+            case static_cast<uint8_t>(0xfe):
+                return PlayState2::STOPPED;
+            default:
+                return PlayState2::UNKNOWN;
+        }
     }
 
-private:
+    PlayState3 parsePlayState3() const {
+        if (packetBytes_.size() <= 0x9d) {
+            return PlayState3::UNKNOWN;
+        }
+        switch (packetBytes_[0x9d]) {
+            case 0x00:
+                return PlayState3::NO_TRACK;
+            case 0x01:
+                return PlayState3::PAUSED_OR_REVERSE;
+            case 0x09:
+                return PlayState3::FORWARD_VINYL;
+            case 0x0d:
+                return PlayState3::FORWARD_CDJ;
+            default:
+                return PlayState3::UNKNOWN;
+        }
+    }
+
     int trackSourcePlayer_;
     TrackSourceSlot trackSourceSlot_;
     TrackType trackType_;
@@ -243,6 +378,11 @@ private:
     int pitch_;
     int beatWithinBar_;
     int packetCounter_;
+    int syncNumber_;
+    int beatNumber_;
+    PlayState playState1_{PlayState::UNKNOWN};
+    PlayState2 playState2_{PlayState2::UNKNOWN};
+    PlayState3 playState3_{PlayState3::UNKNOWN};
 };
 
 } // namespace beatlink

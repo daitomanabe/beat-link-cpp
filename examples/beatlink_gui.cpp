@@ -9,9 +9,14 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <algorithm>
 #include <mutex>
 #include <chrono>
 #include <cmath>
+#include <unordered_map>
+#include <memory>
+#include <cstdio>
+#include <cctype>
 
 // OpenGL / GLFW / ImGui
 #include <GLFW/glfw3.h>
@@ -21,10 +26,14 @@
 
 // Beat Link
 #include <beatlink/BeatLink.hpp>
+#include <beatlink/ui/WaveformRender.hpp>
 
 // Application state
 struct PlayerState {
     std::string name;
+    std::string title;
+    std::string artist;
+    std::string signature;
     int deviceNumber = 0;
     double bpm = 0.0;
     double effectiveBpm = 0.0;
@@ -34,15 +43,22 @@ struct PlayerState {
     bool isMaster = false;
     bool isSynced = false;
     bool isOnAir = false;
+    int durationSeconds = 0;
+    int64_t playbackPositionMs = -1;
     std::chrono::steady_clock::time_point lastBeatTime;
     std::chrono::steady_clock::time_point lastUpdateTime;
     float beatFlash = 0.0f;
+    std::shared_ptr<beatlink::data::TrackMetadata> metadata;
+    std::shared_ptr<beatlink::data::BeatGrid> beatGrid;
+    std::shared_ptr<beatlink::data::WaveformPreview> waveformPreview;
+    std::shared_ptr<beatlink::data::WaveformDetail> waveformDetail;
 };
 
 class BeatLinkApp {
 public:
     std::mutex stateMutex;
     std::map<int, PlayerState> players;
+    std::unordered_map<int, beatlink::data::TrackPositionListenerPtr> positionListeners;
     std::vector<std::string> logMessages;
     bool isRunning = false;
 
@@ -59,22 +75,39 @@ public:
     }
 
     void onDeviceFound(const beatlink::DeviceAnnouncement& device) {
-        std::lock_guard<std::mutex> lock(stateMutex);
-        int num = device.getDeviceNumber();
-        if (players.find(num) == players.end()) {
-            PlayerState state;
-            state.deviceNumber = num;
-            state.name = device.getDeviceName();
-            state.lastUpdateTime = std::chrono::steady_clock::now();
-            players[num] = state;
+        const int num = device.getDeviceNumber();
+        {
+            std::lock_guard<std::mutex> lock(stateMutex);
+            if (players.find(num) == players.end()) {
+                PlayerState state;
+                state.deviceNumber = num;
+                state.name = device.getDeviceName();
+                state.lastUpdateTime = std::chrono::steady_clock::now();
+                players[num] = state;
+            }
+            if (positionListeners.find(num) == positionListeners.end()) {
+                auto listener = std::make_shared<beatlink::data::TrackPositionCallbacks>(
+                    [this, num](const std::shared_ptr<beatlink::data::TrackPositionUpdate>& update) {
+                        onTrackPosition(num, update);
+                    });
+                beatlink::data::TimeFinder::getInstance().addTrackPositionListener(num, listener);
+                positionListeners[num] = listener;
+            }
         }
         addLog("[+] Device found: " + device.getDeviceName() + " (#" + std::to_string(num) + ")");
     }
 
     void onDeviceLost(const beatlink::DeviceAnnouncement& device) {
-        std::lock_guard<std::mutex> lock(stateMutex);
-        int num = device.getDeviceNumber();
-        players.erase(num);
+        const int num = device.getDeviceNumber();
+        {
+            std::lock_guard<std::mutex> lock(stateMutex);
+            players.erase(num);
+            auto listenerIt = positionListeners.find(num);
+            if (listenerIt != positionListeners.end()) {
+                beatlink::data::TimeFinder::getInstance().removeTrackPositionListener(listenerIt->second);
+                positionListeners.erase(listenerIt);
+            }
+        }
         addLog("[-] Device lost: " + device.getDeviceName() + " (#" + std::to_string(num) + ")");
     }
 
@@ -93,6 +126,104 @@ public:
         player.beatFlash = 1.0f;
         player.isPlaying = true;
     }
+
+    void onDeviceUpdate(const beatlink::DeviceUpdate& update) {
+        auto cdj = dynamic_cast<const beatlink::CdjStatus*>(&update);
+        if (!cdj) {
+            return;
+        }
+        std::lock_guard<std::mutex> lock(stateMutex);
+        auto& player = players[cdj->getDeviceNumber()];
+        player.deviceNumber = cdj->getDeviceNumber();
+        player.name = cdj->getDeviceName();
+        player.isPlaying = cdj->isPlaying();
+        player.isMaster = cdj->isTempoMaster();
+        player.isSynced = cdj->isSynced();
+        player.isOnAir = cdj->isOnAir();
+        player.bpm = cdj->getBpm() / 100.0;
+        player.effectiveBpm = cdj->getEffectiveTempo();
+        player.pitchPercent = beatlink::Util::pitchToPercentage(cdj->getPitch());
+        player.beatWithinBar = cdj->getBeatWithinBar();
+        player.lastUpdateTime = std::chrono::steady_clock::now();
+    }
+
+    void onTrackMetadata(const beatlink::data::TrackMetadataUpdate& update) {
+        std::lock_guard<std::mutex> lock(stateMutex);
+        auto& player = players[update.player];
+        player.deviceNumber = update.player;
+        if (!update.metadata) {
+            player.metadata.reset();
+            player.title.clear();
+            player.artist.clear();
+            player.signature.clear();
+            player.durationSeconds = 0;
+            player.waveformPreview.reset();
+            player.waveformDetail.reset();
+            player.beatGrid.reset();
+            player.playbackPositionMs = -1;
+            return;
+        }
+        const bool trackChanged = player.metadata && update.metadata &&
+                                  player.metadata->getTrackReference() != update.metadata->getTrackReference();
+        player.metadata = update.metadata;
+        player.title = update.metadata->getTitle();
+        if (update.metadata->getArtist()) {
+            player.artist = update.metadata->getArtist()->getLabel();
+        } else {
+            player.artist.clear();
+        }
+        player.durationSeconds = update.metadata->getDuration();
+        if (trackChanged) {
+            player.beatGrid.reset();
+            player.waveformPreview.reset();
+            player.waveformDetail.reset();
+            player.signature.clear();
+            player.playbackPositionMs = -1;
+        }
+        player.lastUpdateTime = std::chrono::steady_clock::now();
+    }
+
+    void onBeatGrid(const beatlink::data::BeatGridUpdate& update) {
+        std::lock_guard<std::mutex> lock(stateMutex);
+        auto& player = players[update.player];
+        player.beatGrid = update.beatGrid;
+        player.lastUpdateTime = std::chrono::steady_clock::now();
+    }
+
+    void onWaveformPreview(const beatlink::data::WaveformPreviewUpdate& update) {
+        std::lock_guard<std::mutex> lock(stateMutex);
+        auto& player = players[update.player];
+        player.waveformPreview = update.preview;
+        player.lastUpdateTime = std::chrono::steady_clock::now();
+    }
+
+    void onWaveformDetail(const beatlink::data::WaveformDetailUpdate& update) {
+        std::lock_guard<std::mutex> lock(stateMutex);
+        auto& player = players[update.player];
+        player.waveformDetail = update.detail;
+        player.lastUpdateTime = std::chrono::steady_clock::now();
+    }
+
+    void onTrackPosition(int playerNumber, const std::shared_ptr<beatlink::data::TrackPositionUpdate>& update) {
+        std::lock_guard<std::mutex> lock(stateMutex);
+        auto& player = players[playerNumber];
+        if (!update) {
+            player.playbackPositionMs = -1;
+            player.isPlaying = false;
+            return;
+        }
+        player.playbackPositionMs = update->milliseconds;
+        player.isPlaying = update->playing;
+        player.beatWithinBar = update->getBeatWithinBar();
+        player.lastUpdateTime = std::chrono::steady_clock::now();
+    }
+
+    void onSignature(const beatlink::data::SignatureUpdate& update) {
+        std::lock_guard<std::mutex> lock(stateMutex);
+        auto& player = players[update.player];
+        player.signature = update.signature;
+        player.lastUpdateTime = std::chrono::steady_clock::now();
+    }
 };
 
 static BeatLinkApp app;
@@ -104,18 +235,47 @@ ImVec4 ColorFromHSV(float h, float s, float v, float a = 1.0f) {
     return ImVec4(r, g, b, a);
 }
 
-// Draw beat indicator (4 circles for 4/4 time)
-void DrawBeatIndicator(int currentBeat, float flash) {
+std::string FormatTimeMs(int64_t ms) {
+    if (ms < 0) {
+        return "--:--";
+    }
+    const int totalSeconds = static_cast<int>(ms / 1000);
+    const int minutes = totalSeconds / 60;
+    const int seconds = totalSeconds % 60;
+    char buf[16];
+    std::snprintf(buf, sizeof(buf), "%d:%02d", minutes, seconds);
+    return buf;
+}
+
+int GetBeatsPerBar(const std::string& signature) {
+    int beats = 0;
+    for (char ch : signature) {
+        if (std::isdigit(static_cast<unsigned char>(ch))) {
+            beats = beats * 10 + (ch - '0');
+        } else if (beats > 0) {
+            break;
+        }
+    }
+    if (beats <= 0) {
+        return 4;
+    }
+    return std::min(std::max(beats, 1), 12);
+}
+
+// Draw beat indicator (variable number of beats per bar).
+void DrawBeatIndicator(int currentBeat, int beatsPerBar, float flash) {
     ImDrawList* drawList = ImGui::GetWindowDrawList();
     ImVec2 pos = ImGui::GetCursorScreenPos();
-    float radius = 12.0f;
-    float spacing = 30.0f;
+    beatsPerBar = std::min(std::max(beatsPerBar, 1), 12);
+    const float radius = (beatsPerBar > 6) ? 8.0f : 12.0f;
+    const float spacing = radius * 2.4f;
+    const int displayBeat = ((currentBeat - 1) % beatsPerBar) + 1;
 
-    for (int i = 1; i <= 4; ++i) {
+    for (int i = 1; i <= beatsPerBar; ++i) {
         ImVec2 center(pos.x + (i - 1) * spacing + radius, pos.y + radius);
 
         ImU32 color;
-        if (i == currentBeat) {
+        if (i == displayBeat) {
             // Active beat - bright with flash
             float brightness = 0.5f + 0.5f * flash;
             if (i == 1) {
@@ -133,7 +293,7 @@ void DrawBeatIndicator(int currentBeat, float flash) {
         }
     }
 
-    ImGui::Dummy(ImVec2(4 * spacing, radius * 2 + 4));
+    ImGui::Dummy(ImVec2(beatsPerBar * spacing, radius * 2 + 4));
 }
 
 // Draw player panel
@@ -164,10 +324,12 @@ void DrawPlayerPanel(PlayerState& player) {
 
         ImGui::Indent(10);
 
+        const int beatsPerBar = GetBeatsPerBar(player.signature);
+
         // Beat indicator
         ImGui::Text("Beat:");
         ImGui::SameLine();
-        DrawBeatIndicator(player.beatWithinBar, player.beatFlash);
+        DrawBeatIndicator(player.beatWithinBar, beatsPerBar, player.beatFlash);
 
         // BPM display (large)
         ImGui::PushFont(ImGui::GetIO().Fonts->Fonts[0]); // Default font, but larger
@@ -204,6 +366,60 @@ void DrawPlayerPanel(PlayerState& player) {
         ImGui::SameLine();
         if (player.isOnAir) {
             ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "ON AIR");
+        }
+
+        ImGui::Separator();
+        ImGui::Text("Track:");
+        if (!player.title.empty()) {
+            ImGui::TextWrapped("%s", player.title.c_str());
+        }
+        if (!player.artist.empty()) {
+            ImGui::TextColored(ImVec4(0.7f, 0.9f, 1.0f, 1.0f), "%s", player.artist.c_str());
+        }
+        if (player.title.empty() && player.artist.empty()) {
+            ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), "No track loaded");
+        }
+        if (!player.signature.empty()) {
+            ImGui::Text("Signature: %s", player.signature.c_str());
+        }
+
+        const int64_t durationMs = (player.durationSeconds > 0)
+            ? static_cast<int64_t>(player.durationSeconds) * 1000
+            : -1;
+        if (durationMs > 0) {
+            const float rawProgress = (player.playbackPositionMs >= 0)
+                ? static_cast<float>(player.playbackPositionMs) / static_cast<float>(durationMs)
+                : 0.0f;
+            const float progress = std::min(std::max(rawProgress, 0.0f), 1.0f);
+            const std::string timeLabel = FormatTimeMs(player.playbackPositionMs) + " / " +
+                                          FormatTimeMs(durationMs);
+            ImGui::ProgressBar(progress, ImVec2(-1, 0), timeLabel.c_str());
+        } else if (player.playbackPositionMs >= 0) {
+            ImGui::Text("Position: %s", FormatTimeMs(player.playbackPositionMs).c_str());
+        }
+
+        const beatlink::data::CueList* cues = nullptr;
+        if (player.metadata && player.metadata->getCueList()) {
+            cues = player.metadata->getCueList().get();
+        }
+
+        if (player.waveformPreview) {
+            beatlink::ui::WaveformPreviewDrawOptions options;
+            options.height = 70.0f;
+            std::string previewId = "WaveformPreview##" + std::to_string(player.deviceNumber);
+            beatlink::ui::DrawWaveformPreview(previewId.c_str(), *player.waveformPreview,
+                                              player.metadata.get(), cues,
+                                              static_cast<float>(player.playbackPositionMs),
+                                              options);
+        }
+        if (player.waveformDetail) {
+            beatlink::ui::WaveformDetailDrawOptions options;
+            options.height = 120.0f;
+            std::string detailId = "WaveformDetail##" + std::to_string(player.deviceNumber);
+            beatlink::ui::DrawWaveformDetail(detailId.c_str(), *player.waveformDetail,
+                                             player.metadata.get(), player.beatGrid.get(), cues,
+                                             static_cast<float>(player.playbackPositionMs),
+                                             options);
         }
 
         ImGui::Unindent(10);
@@ -258,6 +474,12 @@ int main() {
     // Start Beat Link
     auto& deviceFinder = beatlink::DeviceFinder::getInstance();
     auto& beatFinder = beatlink::BeatFinder::getInstance();
+    auto& virtualCdj = beatlink::VirtualCdj::getInstance();
+    auto& metadataFinder = beatlink::data::MetadataFinder::getInstance();
+    auto& beatGridFinder = beatlink::data::BeatGridFinder::getInstance();
+    auto& waveformFinder = beatlink::data::WaveformFinder::getInstance();
+    auto& timeFinder = beatlink::data::TimeFinder::getInstance();
+    auto& signatureFinder = beatlink::data::SignatureFinder::getInstance();
 
     deviceFinder.addDeviceFoundListener([](const beatlink::DeviceAnnouncement& d) {
         app.onDeviceFound(d);
@@ -268,6 +490,29 @@ int main() {
     beatFinder.addBeatListener([](const beatlink::Beat& b) {
         app.onBeat(b);
     });
+    virtualCdj.addUpdateListener(std::make_shared<beatlink::DeviceUpdateCallbacks>(
+        [](const beatlink::DeviceUpdate& update) {
+            app.onDeviceUpdate(update);
+        }));
+    metadataFinder.addTrackMetadataListener(std::make_shared<beatlink::data::TrackMetadataCallbacks>(
+        [](const beatlink::data::TrackMetadataUpdate& update) {
+            app.onTrackMetadata(update);
+        }));
+    beatGridFinder.addBeatGridListener(std::make_shared<beatlink::data::BeatGridCallbacks>(
+        [](const beatlink::data::BeatGridUpdate& update) {
+            app.onBeatGrid(update);
+        }));
+    waveformFinder.addWaveformListener(std::make_shared<beatlink::data::WaveformCallbacks>(
+        [](const beatlink::data::WaveformPreviewUpdate& update) {
+            app.onWaveformPreview(update);
+        },
+        [](const beatlink::data::WaveformDetailUpdate& update) {
+            app.onWaveformDetail(update);
+        }));
+    signatureFinder.addSignatureListener(std::make_shared<beatlink::data::SignatureCallbacks>(
+        [](const beatlink::data::SignatureUpdate& update) {
+            app.onSignature(update);
+        }));
 
     if (deviceFinder.start()) {
         app.addLog("DeviceFinder started on port 50000");
@@ -281,6 +526,23 @@ int main() {
     } else {
         app.addLog("ERROR: Failed to start BeatFinder");
     }
+
+    if (virtualCdj.start()) {
+        app.addLog("VirtualCdj started");
+    } else {
+        app.addLog("ERROR: Failed to start VirtualCdj");
+    }
+
+    metadataFinder.start();
+    app.addLog("MetadataFinder started");
+    beatGridFinder.start();
+    app.addLog("BeatGridFinder started");
+    waveformFinder.start();
+    app.addLog("WaveformFinder started");
+    signatureFinder.start();
+    app.addLog("SignatureFinder started");
+    timeFinder.start();
+    app.addLog("TimeFinder started");
 
     // Main loop
     while (!glfwWindowShouldClose(window)) {
@@ -355,6 +617,12 @@ int main() {
     }
 
     // Cleanup
+    timeFinder.stop();
+    signatureFinder.stop();
+    waveformFinder.stop();
+    beatGridFinder.stop();
+    metadataFinder.stop();
+    virtualCdj.stop();
     beatFinder.stop();
     deviceFinder.stop();
 

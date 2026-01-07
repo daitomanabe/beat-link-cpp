@@ -3,6 +3,8 @@
 #include "DeviceUpdate.hpp"
 #include "Util.hpp"
 
+#include <format>
+
 namespace beatlink {
 
 /**
@@ -72,15 +74,13 @@ public:
     }
 
     std::string toString() const override {
-        char buffer[256];
-        snprintf(buffer, sizeof(buffer),
-                 "MixerStatus: Device %d, name: %s, master: %s, BPM: %.2f, beat: %d",
-                 deviceNumber_,
-                 deviceName_.c_str(),
-                 isTempoMaster() ? "true" : "false",
-                 bpm_ / 100.0,
-                 beatWithinBar_);
-        return std::string(buffer);
+        return std::format(
+            "MixerStatus: Device {}, name: {}, master: {}, BPM: {:.2f}, beat: {}",
+            deviceNumber_,
+            deviceName_,
+            isTempoMaster() ? "true" : "false",
+            bpm_ / 100.0,
+            beatWithinBar_);
     }
 
 private:

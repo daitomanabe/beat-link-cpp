@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.15)
 project(beatlink VERSION 0.2.0 LANGUAGES CXX)
 
-# C++17 Standard
-set(CMAKE_CXX_STANDARD 17)
+# C++20 Standard
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
@@ -86,6 +86,32 @@ set(BEATLINK_SOURCES
     src/DeviceUpdate.cpp
     src/CdjStatus.cpp
     src/MixerStatus.cpp
+    src/Metronome.cpp
+    src/PrecisePosition.cpp
+    src/MediaDetails.cpp
+    src/data/SlotReference.cpp
+    src/data/CueList.cpp
+    src/data/TrackMetadata.cpp
+    src/data/WaveformPreview.cpp
+    src/data/WaveformDetail.cpp
+    src/data/MetadataFinder.cpp
+    src/data/BeatGridFinder.cpp
+    src/data/WaveformFinder.cpp
+    src/data/ArtFinder.cpp
+    src/data/AnalysisTagFinder.cpp
+    src/data/CrateDigger.cpp
+    src/data/MenuLoader.cpp
+    src/data/SignatureFinder.cpp
+    src/data/TimeFinder.cpp
+    src/dbserver/DataReader.cpp
+    src/dbserver/Field.cpp
+    src/dbserver/NumberField.cpp
+    src/dbserver/StringField.cpp
+    src/dbserver/BinaryField.cpp
+    src/dbserver/Message.cpp
+    src/dbserver/Client.cpp
+    src/dbserver/ConnectionManager.cpp
+    src/VirtualRekordbox.cpp
     src/VirtualCdj.cpp
 )
 

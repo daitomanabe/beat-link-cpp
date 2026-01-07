@@ -4,9 +4,13 @@
 #include <array>
 #include <vector>
 #include <string>
+#include <algorithm>
 #include <cstring>
 #include <optional>
 #include <sstream>
+#include <span>
+
+#include "PacketTypes.hpp"
 
 namespace beatlink {
 
@@ -219,6 +223,63 @@ public:
     }
 
     /**
+     * Validate a packet header and return its PacketType if recognized for the port.
+     */
+    [[nodiscard]] static std::optional<PacketType> validateHeader(
+        std::span<const uint8_t> data,
+        uint16_t port
+    ) noexcept {
+        if (data.size() < MAGIC_HEADER.size() || data.size() <= PACKET_TYPE_OFFSET) {
+            return std::nullopt;
+        }
+
+        if (std::memcmp(data.data(), MAGIC_HEADER.data(), MAGIC_HEADER.size()) != 0) {
+            return std::nullopt;
+        }
+
+        auto type = PacketTypes::lookup(port, data[PACKET_TYPE_OFFSET]);
+        return type;
+    }
+
+    /**
+     * Build a standard DJ Link packet with header, type, device name, and payload.
+     */
+    [[nodiscard]] static std::vector<uint8_t> buildPacket(
+        PacketType type,
+        std::span<const uint8_t> deviceName,
+        std::span<const uint8_t> payload
+    ) {
+        constexpr size_t headerSize = 0x1f;
+        std::vector<uint8_t> result;
+        result.resize(headerSize + payload.size());
+        std::memcpy(result.data(), MAGIC_HEADER.data(), MAGIC_HEADER.size());
+        result[PACKET_TYPE_OFFSET] = static_cast<uint8_t>(type);
+
+        const size_t nameOffset = MAGIC_HEADER.size() + 1;
+        const size_t nameLength = 0x14;
+        std::memset(result.data() + nameOffset, 0, nameLength);
+        std::memcpy(result.data() + nameOffset, deviceName.data(),
+                    std::min(nameLength, deviceName.size()));
+
+        std::memcpy(result.data() + headerSize, payload.data(), payload.size());
+        return result;
+    }
+
+    /**
+     * Helper for writing payload bytes using packet addresses.
+     */
+    static void setPayloadByte(std::span<uint8_t> payload, size_t address, uint8_t value) noexcept {
+        if (address < 0x1f) {
+            return;
+        }
+        size_t offset = address - 0x1f;
+        if (offset >= payload.size()) {
+            return;
+        }
+        payload[offset] = value;
+    }
+
+    /**
      * Convert half-frame number to time in milliseconds.
      * (75 frames per second, 150 half-frames)
      */
@@ -231,6 +292,13 @@ public:
      */
     [[nodiscard]] static constexpr int timeToHalfFrame(int64_t milliseconds) noexcept {
         return static_cast<int>(milliseconds * 15 / 100);
+    }
+
+    /**
+     * Convert time in milliseconds to nearest half-frame number.
+     */
+    [[nodiscard]] static constexpr int timeToHalfFrameRounded(int64_t milliseconds) noexcept {
+        return static_cast<int>(milliseconds * 0.15 + 0.5);
     }
 
     /**
