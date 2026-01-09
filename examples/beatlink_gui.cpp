@@ -10,6 +10,7 @@
 #include <vector>
 #include <map>
 #include <algorithm>
+#include <atomic>
 #include <mutex>
 #include <chrono>
 #include <cmath>
@@ -17,6 +18,9 @@
 #include <memory>
 #include <cstdio>
 #include <cctype>
+#include <thread>
+#include <stdexcept>
+#include <functional>
 
 // OpenGL / GLFW / ImGui
 #include <GLFW/glfw3.h>
@@ -61,6 +65,7 @@ public:
     std::unordered_map<int, beatlink::data::TrackPositionListenerPtr> positionListeners;
     std::vector<std::string> logMessages;
     bool isRunning = false;
+    std::atomic<bool> dataFindersStarted{false};
 
     void addLog(const std::string& msg) {
         std::lock_guard<std::mutex> lock(stateMutex);
@@ -76,6 +81,7 @@ public:
 
     void onDeviceFound(const beatlink::DeviceAnnouncement& device) {
         const int num = device.getDeviceNumber();
+        beatlink::data::TrackPositionListenerPtr newListener;
         {
             std::lock_guard<std::mutex> lock(stateMutex);
             if (players.find(num) == players.end()) {
@@ -86,27 +92,34 @@ public:
                 players[num] = state;
             }
             if (positionListeners.find(num) == positionListeners.end()) {
-                auto listener = std::make_shared<beatlink::data::TrackPositionCallbacks>(
+                newListener = std::make_shared<beatlink::data::TrackPositionCallbacks>(
                     [this, num](const std::shared_ptr<beatlink::data::TrackPositionUpdate>& update) {
                         onTrackPosition(num, update);
                     });
-                beatlink::data::TimeFinder::getInstance().addTrackPositionListener(num, listener);
-                positionListeners[num] = listener;
+                positionListeners[num] = newListener;
             }
         }
+        if (newListener) {
+            beatlink::data::TimeFinder::getInstance().addTrackPositionListener(num, newListener);
+        }
         addLog("[+] Device found: " + device.getDeviceName() + " (#" + std::to_string(num) + ")");
+        startDataFindersAsync();
     }
 
     void onDeviceLost(const beatlink::DeviceAnnouncement& device) {
         const int num = device.getDeviceNumber();
+        beatlink::data::TrackPositionListenerPtr listenerToRemove;
         {
             std::lock_guard<std::mutex> lock(stateMutex);
             players.erase(num);
             auto listenerIt = positionListeners.find(num);
             if (listenerIt != positionListeners.end()) {
-                beatlink::data::TimeFinder::getInstance().removeTrackPositionListener(listenerIt->second);
+                listenerToRemove = listenerIt->second;
                 positionListeners.erase(listenerIt);
             }
+        }
+        if (listenerToRemove) {
+            beatlink::data::TimeFinder::getInstance().removeTrackPositionListener(listenerToRemove);
         }
         addLog("[-] Device lost: " + device.getDeviceName() + " (#" + std::to_string(num) + ")");
     }
@@ -223,6 +236,53 @@ public:
         auto& player = players[update.player];
         player.signature = update.signature;
         player.lastUpdateTime = std::chrono::steady_clock::now();
+    }
+
+    void startDataFindersAsync() {
+        bool expected = false;
+        if (!dataFindersStarted.compare_exchange_strong(expected, true)) {
+            return;
+        }
+
+        BeatLinkApp* self = this;
+        std::thread([self]() {
+            auto startAndLog = [self](const std::string& label, const std::function<void()>& startFn) {
+                try {
+                    startFn();
+                    self->addLog(label + " started");
+                } catch (const std::exception& e) {
+                    self->addLog("ERROR: " + label + " failed: " + std::string(e.what()));
+                } catch (...) {
+                    self->addLog("ERROR: " + label + " failed: unknown error");
+                }
+            };
+
+            startAndLog("VirtualCdj", []() {
+                if (!beatlink::VirtualCdj::getInstance().start()) {
+                    throw std::runtime_error("start returned false");
+                }
+            });
+
+            startAndLog("MetadataFinder", []() {
+                beatlink::data::MetadataFinder::getInstance().start();
+            });
+
+            startAndLog("BeatGridFinder", []() {
+                beatlink::data::BeatGridFinder::getInstance().start();
+            });
+
+            startAndLog("WaveformFinder", []() {
+                beatlink::data::WaveformFinder::getInstance().start();
+            });
+
+            startAndLog("SignatureFinder", []() {
+                beatlink::data::SignatureFinder::getInstance().start();
+            });
+
+            startAndLog("TimeFinder", []() {
+                beatlink::data::TimeFinder::getInstance().start();
+            });
+        }).detach();
     }
 };
 
@@ -432,6 +492,10 @@ void DrawPlayerPanel(PlayerState& player) {
 }
 
 int main() {
+    glfwSetErrorCallback([](int error, const char* description) {
+        std::cerr << "GLFW error " << error << ": " << (description ? description : "(unknown)") << std::endl;
+    });
+
     // Initialize GLFW
     if (!glfwInit()) {
         std::cerr << "Failed to initialize GLFW" << std::endl;
@@ -443,6 +507,8 @@ int main() {
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
+    glfwWindowHint(GLFW_VISIBLE, GLFW_TRUE);
+    glfwWindowHint(GLFW_FOCUS_ON_SHOW, GLFW_TRUE);
 
     // Create window
     GLFWwindow* window = glfwCreateWindow(800, 600, "Beat Link Monitor", nullptr, nullptr);
@@ -451,6 +517,8 @@ int main() {
         glfwTerminate();
         return 1;
     }
+    glfwShowWindow(window);
+    glfwFocusWindow(window);
     glfwMakeContextCurrent(window);
     glfwSwapInterval(1); // VSync
 
@@ -478,7 +546,6 @@ int main() {
     auto& metadataFinder = beatlink::data::MetadataFinder::getInstance();
     auto& beatGridFinder = beatlink::data::BeatGridFinder::getInstance();
     auto& waveformFinder = beatlink::data::WaveformFinder::getInstance();
-    auto& timeFinder = beatlink::data::TimeFinder::getInstance();
     auto& signatureFinder = beatlink::data::SignatureFinder::getInstance();
 
     deviceFinder.addDeviceFoundListener([](const beatlink::DeviceAnnouncement& d) {
@@ -527,22 +594,7 @@ int main() {
         app.addLog("ERROR: Failed to start BeatFinder");
     }
 
-    if (virtualCdj.start()) {
-        app.addLog("VirtualCdj started");
-    } else {
-        app.addLog("ERROR: Failed to start VirtualCdj");
-    }
-
-    metadataFinder.start();
-    app.addLog("MetadataFinder started");
-    beatGridFinder.start();
-    app.addLog("BeatGridFinder started");
-    waveformFinder.start();
-    app.addLog("WaveformFinder started");
-    signatureFinder.start();
-    app.addLog("SignatureFinder started");
-    timeFinder.start();
-    app.addLog("TimeFinder started");
+    app.addLog("Waiting for devices to start metadata/time services");
 
     // Main loop
     while (!glfwWindowShouldClose(window)) {
@@ -617,7 +669,7 @@ int main() {
     }
 
     // Cleanup
-    timeFinder.stop();
+    beatlink::data::TimeFinder::getInstance().stop();
     signatureFinder.stop();
     waveformFinder.stop();
     beatGridFinder.stop();

@@ -42,5 +42,8 @@ dist/
 # Dependencies (fetched by CMake)
 _deps/
 
+# Local vendor workspace
+external/
+
 # Test output
 *.log
