@@ -3,6 +3,9 @@
 #include "DeviceUpdate.hpp"
 #include "Util.hpp"
 
+#include <optional>
+#include <span>
+
 namespace beatlink {
 
 /**
@@ -17,7 +20,26 @@ public:
     static constexpr size_t PACKET_SIZE = 0x60; // 96 bytes
 
     /**
+     * Factory function to create a Beat from raw packet data.
+     * Returns std::nullopt if packet size is invalid.
+     *
+     * @param data the packet bytes as span
+     * @param senderAddress the IP address of the sender
+     * @return std::optional<Beat> - nullopt if invalid
+     */
+    [[nodiscard]] static std::optional<Beat> create(
+        std::span<const uint8_t> data,
+        const asio::ip::address_v4& senderAddress
+    ) noexcept {
+        if (!validatePacketSize(data.size(), PACKET_SIZE)) {
+            return std::nullopt;
+        }
+        return Beat(data, senderAddress, NoValidateTag{});
+    }
+
+    /**
      * Construct from raw packet data.
+     * @deprecated Use create() factory function for exception-safe construction
      */
     Beat(const uint8_t* data, size_t length, const asio::ip::address_v4& senderAddress)
         : DeviceUpdate(data, length, senderAddress, "Beat announcement", PACKET_SIZE)
@@ -25,6 +47,19 @@ public:
         , bpm_(static_cast<int>(Util::bytesToNumber(data, 0x5a, 2)))
     {
     }
+
+private:
+    /**
+     * Private constructor for factory function (noexcept).
+     */
+    Beat(std::span<const uint8_t> data, const asio::ip::address_v4& senderAddress, NoValidateTag) noexcept
+        : DeviceUpdate(data, senderAddress, DEVICE_NUMBER_OFFSET, NoValidateTag{})
+        , pitch_(static_cast<int>(Util::bytesToNumber(data.data(), 0x55, 3)))
+        , bpm_(static_cast<int>(Util::bytesToNumber(data.data(), 0x5a, 2)))
+    {
+    }
+
+public:
 
     /**
      * Get the device pitch at the time of the beat.

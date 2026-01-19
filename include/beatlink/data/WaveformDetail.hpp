@@ -27,6 +27,20 @@ public:
     WaveformDetail(DataReference reference, const beatlink::dbserver::Message& message, WaveformStyle style);
     WaveformDetail(DataReference reference, std::vector<uint8_t> data, WaveformStyle style);
 
+    /**
+     * Construct from ANLZ waveform detail entries (for AnlzParser)
+     * @param entries Raw entry data
+     * @param entrySize Size of each entry
+     */
+    WaveformDetail(const std::vector<uint8_t>& entries, unsigned int entrySize)
+        : dataReference()
+        , data_(entries)
+        , isColor_(entrySize > 1)
+        , style_(entrySize > 1 ? WaveformStyle::RGB : WaveformStyle::BLUE)
+    {
+        (void)entrySize;  // Used for style detection above
+    }
+
     std::span<const uint8_t> getData() const { return data_; }
     int getFrameCount() const;
     int64_t getTotalTime() const;

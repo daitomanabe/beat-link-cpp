@@ -1,15 +1,75 @@
 cmake_minimum_required(VERSION 3.15)
-project(beatlink VERSION 0.2.0 LANGUAGES CXX)
+project(beatlink VERSION 0.2.0 LANGUAGES CXX C)
+
+# Allow older CMake versions in dependencies
+set(CMAKE_POLICY_DEFAULT_CMP0048 NEW)
+if(POLICY CMP0135)
+    cmake_policy(SET CMP0135 NEW)  # Use timestamps from download time
+endif()
 
 # C++20 Standard
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-# Option to build Python bindings
+# Options
 option(BEATLINK_BUILD_PYTHON "Build Python bindings with nanobind" OFF)
+option(BEATLINK_USE_SQLCIPHER "Use SQLCipher for encrypted database support" OFF)
 
 include(FetchContent)
+
+# =============================================================================
+# OpusProvider Dependencies
+# =============================================================================
+
+# miniz - ZIP library
+# Use a newer tag that supports CMake 3.5+
+FetchContent_Declare(
+    miniz
+    GIT_REPOSITORY https://github.com/richgel999/miniz.git
+    GIT_TAG        master
+    CMAKE_ARGS -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+)
+set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(BUILD_FUZZERS OFF CACHE BOOL "" FORCE)
+set(AMALGAMATE_SOURCES OFF CACHE BOOL "" FORCE)
+set(INSTALL_PROJECT OFF CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(miniz)
+
+# sqlite3 amalgamation
+FetchContent_Declare(
+    sqlite3
+    URL https://www.sqlite.org/2024/sqlite-amalgamation-3450000.zip
+)
+FetchContent_MakeAvailable(sqlite3)
+add_library(sqlite3 STATIC ${sqlite3_SOURCE_DIR}/sqlite3.c)
+target_include_directories(sqlite3 PUBLIC ${sqlite3_SOURCE_DIR})
+target_compile_definitions(sqlite3 PRIVATE SQLITE_ENABLE_FTS5 SQLITE_ENABLE_JSON1)
+
+# Kaitai Struct C++ Runtime
+FetchContent_Declare(
+    kaitai_runtime
+    GIT_REPOSITORY https://github.com/kaitai-io/kaitai_struct_cpp_stl_runtime.git
+    GIT_TAG        0.10.1
+)
+FetchContent_MakeAvailable(kaitai_runtime)
+# kaitai_struct_cpp_stl_runtime target is created by the fetched CMakeLists.txt
+
+# utf8proc - Unicode normalization
+FetchContent_Declare(
+    utf8proc
+    GIT_REPOSITORY https://github.com/JuliaStrings/utf8proc.git
+    GIT_TAG        v2.9.0
+)
+set(UTF8PROC_INSTALL OFF CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(utf8proc)
+
+# SQLCipher (optional)
+if(BEATLINK_USE_SQLCIPHER)
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(SQLCIPHER REQUIRED sqlcipher)
+    add_compile_definitions(BEATLINK_HAS_SQLCIPHER)
+endif()
 
 # Find Asio (standalone, non-Boost)
 find_path(ASIO_INCLUDE_DIR asio.hpp
@@ -103,6 +163,11 @@ set(BEATLINK_SOURCES
     src/data/MenuLoader.cpp
     src/data/SignatureFinder.cpp
     src/data/TimeFinder.cpp
+    src/data/OpusProvider.cpp
+    src/data/ZipArchive.cpp
+    src/data/SqliteConnection.cpp
+    src/data/AnlzParser.cpp
+    src/data/PdbParser.cpp
     src/dbserver/DataReader.cpp
     src/dbserver/Field.cpp
     src/dbserver/NumberField.cpp
@@ -115,45 +180,63 @@ set(BEATLINK_SOURCES
     src/VirtualCdj.cpp
 )
 
+# Kaitai generated parsers (generated from .ksy files)
+set(KAITAI_GENERATED_SOURCES
+    src/generated/rekordbox_anlz.cpp
+    src/generated/rekordbox_pdb.cpp
+)
+
 # Create library
-add_library(beatlink ${BEATLINK_SOURCES})
+add_library(beatlink ${BEATLINK_SOURCES} ${KAITAI_GENERATED_SOURCES})
 target_include_directories(beatlink PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/generated
     ${ASIO_INCLUDE_DIR}
 )
+
+# Link OpusProvider dependencies
+target_link_libraries(beatlink PUBLIC
+    miniz
+    sqlite3
+    kaitai_struct_cpp_stl_runtime
+    utf8proc
+)
+
+# SQLCipher linking (optional)
+if(BEATLINK_USE_SQLCIPHER)
+    target_include_directories(beatlink PRIVATE ${SQLCIPHER_INCLUDE_DIRS})
+    target_link_libraries(beatlink PRIVATE ${SQLCIPHER_LIBRARIES})
+endif()
 
 # Platform-specific settings
 if(APPLE)
     target_compile_definitions(beatlink PRIVATE _DARWIN_C_SOURCE)
 elseif(WIN32)
     target_compile_definitions(beatlink PRIVATE _WIN32_WINNT=0x0601)
-    target_link_libraries(beatlink ws2_32)
+    target_link_libraries(beatlink PUBLIC ws2_32)
 endif()
-
-# Console example application
-add_executable(beatlink_example examples/simple_beat_listener.cpp)
-target_link_libraries(beatlink_example beatlink)
-
-# GUI application with Dear ImGui
-add_executable(beatlink_gui examples/beatlink_gui.cpp)
-target_link_libraries(beatlink_gui beatlink imgui)
-target_include_directories(beatlink_gui PRIVATE ${imgui_SOURCE_DIR})
 
 # Threading support
 find_package(Threads REQUIRED)
-target_link_libraries(beatlink Threads::Threads)
-target_link_libraries(beatlink_example Threads::Threads)
-target_link_libraries(beatlink_gui Threads::Threads)
+target_link_libraries(beatlink PUBLIC Threads::Threads)
+
+# Console example application
+add_executable(beatlink_example examples/simple_beat_listener.cpp)
+target_link_libraries(beatlink_example PRIVATE beatlink Threads::Threads)
+
+# GUI application with Dear ImGui
+add_executable(beatlink_gui examples/beatlink_gui.cpp)
+target_link_libraries(beatlink_gui PRIVATE beatlink imgui Threads::Threads)
+target_include_directories(beatlink_gui PRIVATE ${imgui_SOURCE_DIR})
 
 # macOS specific
 if(APPLE)
-    target_link_libraries(beatlink_gui "-framework Cocoa" "-framework IOKit" "-framework CoreVideo")
+    target_link_libraries(beatlink_gui PRIVATE "-framework Cocoa" "-framework IOKit" "-framework CoreVideo")
 endif()
 
 # CLI tool with --schema support
 add_executable(beatlink_cli examples/beatlink_cli.cpp)
-target_link_libraries(beatlink_cli beatlink)
-target_link_libraries(beatlink_cli Threads::Threads)
+target_link_libraries(beatlink_cli PRIVATE beatlink Threads::Threads)
 
 # Python bindings (nanobind)
 if(BEATLINK_BUILD_PYTHON)

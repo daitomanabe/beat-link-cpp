@@ -11,6 +11,18 @@ namespace beatlink::data {
 
 class DataReference {
 public:
+    /**
+     * Default constructor for DataReference (used by ANLZ parsing)
+     */
+    DataReference()
+        : player_(0)
+        , slot_(TrackSourceSlot::NO_TRACK)
+        , rekordboxId_(0)
+        , trackType_(TrackType::REKORDBOX)
+        , hash_(0)
+    {
+    }
+
     DataReference(int player, TrackSourceSlot slot, int rekordboxId, TrackType trackType)
         : player_(player)
         , slot_(slot)

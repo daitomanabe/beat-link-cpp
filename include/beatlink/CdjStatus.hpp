@@ -4,6 +4,8 @@
 #include "Util.hpp"
 
 #include <format>
+#include <optional>
+#include <span>
 
 namespace beatlink {
 
@@ -95,65 +97,31 @@ public:
     static constexpr size_t MIN_PACKET_SIZE = 0xcc; // 204 bytes minimum
 
     /**
+     * Factory function to create a CdjStatus from raw packet data.
+     * Returns std::nullopt if packet size is too small.
+     *
+     * @param data the packet bytes as span
+     * @param senderAddress the IP address of the sender
+     * @return std::optional<CdjStatus> - nullopt if invalid
+     */
+    [[nodiscard]] static std::optional<CdjStatus> create(
+        std::span<const uint8_t> data,
+        const asio::ip::address_v4& senderAddress
+    ) noexcept {
+        if (!validatePacketSize(data.size(), MIN_PACKET_SIZE)) {
+            return std::nullopt;
+        }
+        return CdjStatus(data, senderAddress, NoValidateTag{});
+    }
+
+    /**
      * Construct from raw packet data.
+     * @deprecated Use create() factory function for exception-safe construction
      */
     CdjStatus(const uint8_t* data, size_t length, const asio::ip::address_v4& senderAddress)
         : DeviceUpdate(data, length, senderAddress, "CDJ status", length)
     {
-        // Parse track source player (offset 0x28)
-        trackSourcePlayer_ = data[0x28];
-
-        // Parse track source slot (offset 0x29)
-        uint8_t slotByte = data[0x29];
-        switch (slotByte) {
-            case 0: trackSourceSlot_ = TrackSourceSlot::NO_TRACK; break;
-            case 1: trackSourceSlot_ = TrackSourceSlot::CD_SLOT; break;
-            case 2: trackSourceSlot_ = TrackSourceSlot::SD_SLOT; break;
-            case 3: trackSourceSlot_ = TrackSourceSlot::USB_SLOT; break;
-            case 4: trackSourceSlot_ = TrackSourceSlot::COLLECTION; break;
-            case 7: trackSourceSlot_ = TrackSourceSlot::USB_2_SLOT; break;
-            default: trackSourceSlot_ = TrackSourceSlot::UNKNOWN; break;
-        }
-
-        // Parse track type (offset 0x2a)
-        uint8_t typeByte = data[0x2a];
-        switch (typeByte) {
-            case 0: trackType_ = TrackType::NO_TRACK; break;
-            case 1: trackType_ = TrackType::REKORDBOX; break;
-            case 2: trackType_ = TrackType::UNANALYZED; break;
-            case 5: trackType_ = TrackType::CD_DIGITAL_AUDIO; break;
-            default: trackType_ = TrackType::UNKNOWN; break;
-        }
-
-        // Parse rekordbox ID (offset 0x2c, 4 bytes)
-        rekordboxId_ = static_cast<int>(Util::bytesToNumber(data, 0x2c, 4));
-
-        // Parse track number (offset 0x32, 2 bytes)
-        trackNumber_ = static_cast<int>(Util::bytesToNumber(data, 0x32, 2));
-
-        // Parse BPM (offset 0x92, 2 bytes)
-        bpm_ = static_cast<int>(Util::bytesToNumber(data, 0x92, 2));
-
-        // Parse pitch (offset 0x8d, 4 bytes, but only 3 bytes meaningful)
-        pitch_ = static_cast<int>(Util::bytesToNumber(data, 0x8d, 4));
-
-        // Parse beat within bar (offset 0xa6)
-        beatWithinBar_ = data[0xa6];
-
-        // Parse play states
-        playState1_ = parsePlayState1();
-        playState2_ = parsePlayState2();
-        playState3_ = parsePlayState3();
-
-        // Parse sync counter (offset 0x84, 4 bytes)
-        syncNumber_ = static_cast<int>(Util::bytesToNumber(data, 0x84, 4));
-
-        // Parse beat number (offset 0xa0, 4 bytes)
-        int64_t beatNumber = Util::bytesToNumber(data, 0xa0, 4);
-        beatNumber_ = (beatNumber == 0xffffffff) ? -1 : static_cast<int>(beatNumber);
-
-        // Parse packet counter (offset 0xc8, 4 bytes)
-        packetCounter_ = static_cast<int>(Util::bytesToNumber(data, 0xc8, 4));
+        initParsing(data);
     }
 
     // Track source information
@@ -314,6 +282,72 @@ public:
     }
 
 private:
+    /**
+     * Private constructor for factory function (noexcept).
+     */
+    CdjStatus(std::span<const uint8_t> data, const asio::ip::address_v4& senderAddress, NoValidateTag) noexcept
+        : DeviceUpdate(data, senderAddress, DEVICE_NUMBER_OFFSET, NoValidateTag{})
+    {
+        initParsing(data.data());
+    }
+
+    void initParsing(const uint8_t* data) noexcept {
+        // Parse track source player (offset 0x28)
+        trackSourcePlayer_ = data[0x28];
+
+        // Parse track source slot (offset 0x29)
+        uint8_t slotByte = data[0x29];
+        switch (slotByte) {
+            case 0: trackSourceSlot_ = TrackSourceSlot::NO_TRACK; break;
+            case 1: trackSourceSlot_ = TrackSourceSlot::CD_SLOT; break;
+            case 2: trackSourceSlot_ = TrackSourceSlot::SD_SLOT; break;
+            case 3: trackSourceSlot_ = TrackSourceSlot::USB_SLOT; break;
+            case 4: trackSourceSlot_ = TrackSourceSlot::COLLECTION; break;
+            case 7: trackSourceSlot_ = TrackSourceSlot::USB_2_SLOT; break;
+            default: trackSourceSlot_ = TrackSourceSlot::UNKNOWN; break;
+        }
+
+        // Parse track type (offset 0x2a)
+        uint8_t typeByte = data[0x2a];
+        switch (typeByte) {
+            case 0: trackType_ = TrackType::NO_TRACK; break;
+            case 1: trackType_ = TrackType::REKORDBOX; break;
+            case 2: trackType_ = TrackType::UNANALYZED; break;
+            case 5: trackType_ = TrackType::CD_DIGITAL_AUDIO; break;
+            default: trackType_ = TrackType::UNKNOWN; break;
+        }
+
+        // Parse rekordbox ID (offset 0x2c, 4 bytes)
+        rekordboxId_ = static_cast<int>(Util::bytesToNumber(data, 0x2c, 4));
+
+        // Parse track number (offset 0x32, 2 bytes)
+        trackNumber_ = static_cast<int>(Util::bytesToNumber(data, 0x32, 2));
+
+        // Parse BPM (offset 0x92, 2 bytes)
+        bpm_ = static_cast<int>(Util::bytesToNumber(data, 0x92, 2));
+
+        // Parse pitch (offset 0x8d, 4 bytes, but only 3 bytes meaningful)
+        pitch_ = static_cast<int>(Util::bytesToNumber(data, 0x8d, 4));
+
+        // Parse beat within bar (offset 0xa6)
+        beatWithinBar_ = data[0xa6];
+
+        // Parse play states
+        playState1_ = parsePlayState1();
+        playState2_ = parsePlayState2();
+        playState3_ = parsePlayState3();
+
+        // Parse sync counter (offset 0x84, 4 bytes)
+        syncNumber_ = static_cast<int>(Util::bytesToNumber(data, 0x84, 4));
+
+        // Parse beat number (offset 0xa0, 4 bytes)
+        int64_t beatNumber = Util::bytesToNumber(data, 0xa0, 4);
+        beatNumber_ = (beatNumber == 0xffffffff) ? -1 : static_cast<int>(beatNumber);
+
+        // Parse packet counter (offset 0xc8, 4 bytes)
+        packetCounter_ = static_cast<int>(Util::bytesToNumber(data, 0xc8, 4));
+    }
+
     PlayState parsePlayState1() const {
         if (packetBytes_.size() <= 0x7b) {
             return PlayState::UNKNOWN;

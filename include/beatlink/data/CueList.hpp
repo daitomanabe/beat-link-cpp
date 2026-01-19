@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "../Util.hpp"
+#include "AnlzTypes.hpp"
 #include "ColorItem.hpp"
 #include "beatlink/dbserver/BinaryField.hpp"
 #include "beatlink/dbserver/Message.hpp"
@@ -29,6 +30,7 @@ public:
         std::optional<Color> embeddedColor;
         std::optional<Color> rekordboxColor;
 
+        Entry() = default;
         Entry(int64_t position, std::string commentText, int colorIdValue);
         Entry(int64_t startPosition, int64_t endPosition, std::string commentText, int colorIdValue);
         Entry(int hotCue, int64_t position, std::string commentText,
@@ -44,6 +46,40 @@ public:
 
     explicit CueList(const beatlink::dbserver::Message& message);
     CueList(std::vector<std::vector<uint8_t>> rawTags, std::vector<std::vector<uint8_t>> rawExtendedTags);
+
+    /**
+     * Construct from ANLZ cue entries (for AnlzParser)
+     * @param cueEntries Vector of cue entries from ANLZ file
+     * @param isHotCueList True if these are hot cues, false for memory cues
+     */
+    CueList(std::vector<CueEntry> cueEntries, bool isHotCueList)
+        : entries_(convertFromCueEntries(std::move(cueEntries)))
+    {
+        (void)isHotCueList;  // Could be used for categorization if needed
+    }
+
+private:
+    static std::vector<Entry> convertFromCueEntries(std::vector<CueEntry> cueEntries) {
+        std::vector<Entry> entries;
+        entries.reserve(cueEntries.size());
+        for (auto& ce : cueEntries) {
+            Entry e;
+            e.hotCueNumber = ce.hotCue;
+            e.isLoop = ce.isLoop;
+            e.cueTime = ce.timeMs;
+            e.cuePosition = ce.timeMs;  // Assuming position == time for ANLZ
+            e.loopTime = ce.loopTimeMs;
+            e.loopPosition = ce.loopTimeMs;
+            e.comment = std::move(ce.comment);
+            if (ce.colorRed != 0 || ce.colorGreen != 0 || ce.colorBlue != 0) {
+                e.embeddedColor = Color{ce.colorRed, ce.colorGreen, ce.colorBlue};
+            }
+            entries.push_back(std::move(e));
+        }
+        return entries;
+    }
+
+public:
 
     const std::optional<beatlink::dbserver::Message>& getRawMessage() const { return rawMessage_; }
     const std::vector<std::vector<uint8_t>>& getRawTags() const { return rawTags_; }

@@ -5,6 +5,7 @@
 #include <vector>
 #include <chrono>
 #include <optional>
+#include <span>
 #include <asio.hpp>
 
 #include "Util.hpp"
@@ -123,7 +124,16 @@ public:
 
 protected:
     /**
-     * Constructor for subclasses.
+     * Validate packet size for factory functions.
+     * @return true if valid, false otherwise
+     */
+    [[nodiscard]] static bool validatePacketSize(size_t actualLength, size_t expectedLength) noexcept {
+        return actualLength >= expectedLength;
+    }
+
+    /**
+     * Constructor for subclasses (throwing version for backward compatibility).
+     * @deprecated Use the noexcept version with pre-validated data
      */
     DeviceUpdate(const uint8_t* data, size_t length, const asio::ip::address_v4& senderAddress,
                  const std::string& packetName, size_t expectedLength, int deviceNumberOffset = DEVICE_NUMBER_OFFSET)
@@ -136,6 +146,24 @@ protected:
                                         std::to_string(length));
         }
 
+        initFromData(data, length, deviceNumberOffset);
+    }
+
+    /**
+     * Protected noexcept constructor for factory functions.
+     * Caller must ensure data is valid and of sufficient size.
+     */
+    struct NoValidateTag {};
+    DeviceUpdate(std::span<const uint8_t> data, const asio::ip::address_v4& senderAddress,
+                 int deviceNumberOffset, NoValidateTag) noexcept
+        : address_(senderAddress)
+        , timestamp_(std::chrono::steady_clock::now())
+    {
+        initFromData(data.data(), data.size(), deviceNumberOffset);
+    }
+
+private:
+    void initFromData(const uint8_t* data, size_t length, int deviceNumberOffset) noexcept {
         packetBytes_.assign(data, data + length);
         deviceName_ = Util::extractString(data, 0x0b, 20);
         isFromOpusQuad_ = (deviceName_ == OPUS_NAME);
@@ -152,6 +180,8 @@ protected:
             deviceNumber_ = data[deviceNumberOffset];
         }
     }
+
+protected:
 
     asio::ip::address_v4 address_;
     std::chrono::steady_clock::time_point timestamp_;

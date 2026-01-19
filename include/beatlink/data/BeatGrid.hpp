@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "../Util.hpp"
+#include "AnlzTypes.hpp"
 #include "DataReference.hpp"
 #include "beatlink/dbserver/BinaryField.hpp"
 #include "beatlink/dbserver/Message.hpp"
@@ -16,6 +17,23 @@ namespace beatlink::data {
 
 class BeatGrid {
 public:
+    /**
+     * Construct from ANLZ beat grid entries (for AnlzParser)
+     */
+    explicit BeatGrid(std::vector<BeatGridEntry> entries)
+        : dataReference(DataReference{})
+    {
+        beatWithinBarValues_.reserve(entries.size());
+        bpmValues_.reserve(entries.size());
+        timeWithinTrackValues_.reserve(entries.size());
+
+        for (const auto& entry : entries) {
+            beatWithinBarValues_.push_back(entry.beatNumber);
+            bpmValues_.push_back(static_cast<int>(entry.tempo * 100.0f));  // Convert to BPM*100
+            timeWithinTrackValues_.push_back(entry.timeMs);
+        }
+    }
+
     explicit BeatGrid(DataReference reference, const beatlink::dbserver::Message& message)
         : dataReference(std::move(reference))
     {

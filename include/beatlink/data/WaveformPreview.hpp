@@ -24,6 +24,36 @@ public:
     WaveformPreview(DataReference reference, const beatlink::dbserver::Message& message, WaveformStyle style);
     WaveformPreview(DataReference reference, std::vector<uint8_t> data, WaveformStyle style);
 
+    /**
+     * Construct from ANLZ waveform data (for AnlzParser)
+     * @param data Raw waveform data
+     */
+    explicit WaveformPreview(const std::vector<uint8_t>& data)
+        : dataReference()
+        , data_(data)
+        , isColor_(false)
+        , style_(WaveformStyle::BLUE)
+        , segmentCount_(calculateSegmentCount())
+        , maxHeight_(calculateMaxHeight())
+    {
+    }
+
+    /**
+     * Construct from ANLZ color waveform entries (for AnlzParser)
+     * @param entries Raw entry data
+     * @param entrySize Size of each entry
+     */
+    WaveformPreview(const std::vector<uint8_t>& entries, unsigned int entrySize)
+        : dataReference()
+        , data_(entries)
+        , isColor_(entrySize > 1)
+        , style_(entrySize > 1 ? WaveformStyle::RGB : WaveformStyle::BLUE)
+        , segmentCount_(calculateSegmentCount())
+        , maxHeight_(calculateMaxHeight())
+    {
+        (void)entrySize;  // Used for style detection above
+    }
+
     std::span<const uint8_t> getData() const { return data_; }
 
     int getSegmentCount() const { return segmentCount_; }

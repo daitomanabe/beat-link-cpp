@@ -1,0 +1,6 @@
+[submodule "external/beat-link"]
+	path = external/beat-link
+	url = https://github.com/daitomanabe/beat-link.git
+[submodule "external/crate-digger-cpp"]
+	path = external/crate-digger-cpp
+	url = https://github.com/daitomanabe/crate-digger-cpp.git

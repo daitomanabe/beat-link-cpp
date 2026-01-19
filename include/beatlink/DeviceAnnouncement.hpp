@@ -6,6 +6,8 @@
 #include <vector>
 #include <chrono>
 #include <format>
+#include <optional>
+#include <span>
 #include <asio.hpp>
 
 #include "Util.hpp"
@@ -30,12 +32,45 @@ public:
     static constexpr const char* XDJ_AZ_NAME = "XDJ-AZ";
 
     /**
+     * Factory function to create a DeviceAnnouncement from raw packet data.
+     * Returns std::nullopt if packet size is invalid.
+     *
+     * @param data the packet bytes as span
+     * @param senderAddress the IP address of the sender
+     * @return std::optional<DeviceAnnouncement> - nullopt if invalid
+     */
+    [[nodiscard]] static std::optional<DeviceAnnouncement> create(
+        std::span<const uint8_t> data,
+        const asio::ip::address_v4& senderAddress
+    ) noexcept {
+        if (data.size() < PACKET_SIZE) {
+            return std::nullopt;
+        }
+        return DeviceAnnouncement(data.data(), PACKET_SIZE, senderAddress, std::nullopt);
+    }
+
+    /**
+     * Factory function with custom device number (for Opus Quad virtual players).
+     */
+    [[nodiscard]] static std::optional<DeviceAnnouncement> create(
+        std::span<const uint8_t> data,
+        const asio::ip::address_v4& senderAddress,
+        int deviceNumber
+    ) noexcept {
+        if (data.size() < PACKET_SIZE) {
+            return std::nullopt;
+        }
+        return DeviceAnnouncement(data.data(), PACKET_SIZE, senderAddress, deviceNumber);
+    }
+
+    /**
      * Construct from raw packet data.
      *
      * @param data the packet bytes
      * @param length the length of the packet
      * @param senderAddress the IP address of the sender
      * @throws std::invalid_argument if packet size is wrong
+     * @deprecated Use create() factory function for exception-safe construction
      */
     DeviceAnnouncement(const uint8_t* data, size_t length, const asio::ip::address_v4& senderAddress)
         : address_(senderAddress)
@@ -54,12 +89,31 @@ public:
 
     /**
      * Construct with a custom device number.
+     * @deprecated Use create() factory function for exception-safe construction
      */
     DeviceAnnouncement(const uint8_t* data, size_t length, const asio::ip::address_v4& senderAddress, int deviceNumber)
         : DeviceAnnouncement(data, length, senderAddress)
     {
         number_ = deviceNumber;
     }
+
+private:
+    /**
+     * Private constructor for factory function (no validation, no throw).
+     */
+    DeviceAnnouncement(const uint8_t* data, size_t length, const asio::ip::address_v4& senderAddress,
+                       std::optional<int> overrideDeviceNumber) noexcept
+        : address_(senderAddress)
+        , timestamp_(std::chrono::steady_clock::now())
+    {
+        packetBytes_.assign(data, data + length);
+        name_ = Util::extractString(data, 0x0c, 20);
+        isOpusQuad_ = (name_ == OPUS_NAME);
+        isXdjAz_ = (name_ == XDJ_AZ_NAME);
+        number_ = overrideDeviceNumber.value_or(data[0x24]);
+    }
+
+public:
 
     /**
      * Get the IP address of the device.

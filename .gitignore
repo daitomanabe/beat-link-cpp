@@ -42,8 +42,10 @@ dist/
 # Dependencies (fetched by CMake)
 _deps/
 
-# Local vendor workspace
-external/
+# Local vendor workspace (except submodules)
+external/*
+!external/beat-link/
+!external/crate-digger-cpp/
 
 # Test output
 *.log
