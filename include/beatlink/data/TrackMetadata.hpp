@@ -22,6 +22,74 @@ public:
                            std::vector<beatlink::dbserver::Message> items,
                            std::shared_ptr<CueList> cueList);
 
+    /**
+     * Builder for constructing TrackMetadata from PDB data
+     */
+    class Builder {
+    public:
+        Builder& setTrackReference(DataReference ref) { trackReference_ = std::move(ref); return *this; }
+        Builder& setTrackType(TrackType type) { trackType_ = type; return *this; }
+        Builder& setTitle(std::string title) { title_ = std::move(title); return *this; }
+        Builder& setArtist(std::string name, int id = 0) {
+            artist_ = SearchableItem{id, std::move(name)};
+            return *this;
+        }
+        Builder& setAlbum(std::string name, int id = 0) {
+            album_ = SearchableItem{id, std::move(name)};
+            return *this;
+        }
+        Builder& setGenre(std::string name, int id = 0) {
+            genre_ = SearchableItem{id, std::move(name)};
+            return *this;
+        }
+        Builder& setLabel(std::string name, int id = 0) {
+            label_ = SearchableItem{id, std::move(name)};
+            return *this;
+        }
+        Builder& setKey(std::string name, int id = 0) {
+            key_ = SearchableItem{id, std::move(name)};
+            return *this;
+        }
+        Builder& setComment(std::string comment) { comment_ = std::move(comment); return *this; }
+        Builder& setDateAdded(std::string date) { dateAdded_ = std::move(date); return *this; }
+        Builder& setDuration(int seconds) { duration_ = seconds; return *this; }
+        Builder& setTempo(int bpmTimes100) { tempo_ = bpmTimes100; return *this; }
+        Builder& setRating(int rating) { rating_ = rating; return *this; }
+        Builder& setYear(int year) { year_ = year; return *this; }
+        Builder& setBitRate(int kbps) { bitRate_ = kbps; return *this; }
+        Builder& setArtworkId(int id) { artworkId_ = id; return *this; }
+        Builder& setColor(int colorId) {
+            color_ = ColorItem{colorId, ColorItem::colorNameForId(colorId)};
+            return *this;
+        }
+        Builder& setCueList(std::shared_ptr<CueList> cues) { cueList_ = std::move(cues); return *this; }
+
+        std::shared_ptr<TrackMetadata> build();
+
+    private:
+        DataReference trackReference_;
+        TrackType trackType_{TrackType::REKORDBOX};
+        std::string title_;
+        std::optional<SearchableItem> artist_;
+        std::optional<SearchableItem> album_;
+        std::optional<SearchableItem> genre_;
+        std::optional<SearchableItem> label_;
+        std::optional<SearchableItem> key_;
+        std::string comment_;
+        std::string dateAdded_;
+        int duration_{0};
+        int tempo_{0};
+        int rating_{0};
+        int year_{0};
+        int bitRate_{0};
+        int artworkId_{0};
+        std::optional<ColorItem> color_;
+        std::shared_ptr<CueList> cueList_;
+    };
+
+    // Private constructor for Builder
+    friend class Builder;
+
     const DataReference& getTrackReference() const { return trackReference_; }
     TrackType getTrackType() const { return trackType_; }
     int64_t getTimestampNanos() const { return timestampNanos_; }
@@ -53,6 +121,9 @@ public:
     std::string toString() const;
 
 private:
+    // Private constructor for Builder
+    TrackMetadata() = default;
+
     void parseMetadataItem(const beatlink::dbserver::Message& item);
     static SearchableItem buildSearchableItem(const beatlink::dbserver::Message& menuItem);
     static std::string extractStringField(const beatlink::dbserver::Message& menuItem, size_t index);

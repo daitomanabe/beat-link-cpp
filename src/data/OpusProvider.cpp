@@ -1,16 +1,18 @@
 /**
  * OpusProvider implementation
  *
- * Note: Full archive parsing and SQLite support requires additional dependencies:
- * - libzip or miniz for ZIP archive access
- * - sqlite3 for database access
- * - sqlcipher for encrypted database support (optional)
- *
- * This implementation provides stub functions that can be extended when
- * these dependencies are available.
+ * Provides metadata for Opus Quad and XDJ-AZ devices by reading
+ * pre-created metadata archives (ZIP files containing PDB and ANLZ data).
  */
 
 #include "beatlink/data/OpusProvider.hpp"
+#include "beatlink/data/AnlzParser.hpp"
+#include "beatlink/data/BeatGrid.hpp"
+#include "beatlink/data/PdbParser.hpp"
+#include "beatlink/data/TrackMetadata.hpp"
+#include "beatlink/data/WaveformDetail.hpp"
+#include "beatlink/data/WaveformPreview.hpp"
+#include "beatlink/data/ZipArchive.hpp"
 
 #include <algorithm>
 #include <array>
@@ -240,28 +242,190 @@ void OpusProvider::removeArchiveListener(ArchiveListenerPtr listener) {
         archiveListeners_.end());
 }
 
-std::shared_ptr<TrackMetadata> OpusProvider::getTrackMetadata(int /*usbSlot*/, int /*rekordboxId*/) const {
-    // TODO: Implement when archive parsing is available
-    return nullptr;
+std::shared_ptr<TrackMetadata> OpusProvider::getTrackMetadata(int usbSlot, int rekordboxId) const {
+    auto archive = getArchive(usbSlot);
+    if (!archive) return nullptr;
+
+    // Open the archive ZIP file
+    ZipArchive zip;
+    if (!zip.open(archive->archivePath)) return nullptr;
+
+    // Try to extract and parse export.pdb
+    auto pdbData = zip.extractToMemory("PIONEER/rekordbox/export.pdb");
+    if (pdbData.empty()) return nullptr;
+
+    PdbParser parser;
+    if (!parser.parseMemory(pdbData.data(), pdbData.size())) return nullptr;
+
+    // Find the track
+    auto track = parser.findTrack(static_cast<uint32_t>(rekordboxId));
+    if (!track) return nullptr;
+
+    return parser.toTrackMetadata(*track);
 }
 
-std::shared_ptr<BeatGrid> OpusProvider::getBeatGrid(int /*usbSlot*/, int /*rekordboxId*/) const {
-    // TODO: Implement when archive parsing is available
-    return nullptr;
+std::shared_ptr<BeatGrid> OpusProvider::getBeatGrid(int usbSlot, int rekordboxId) const {
+    auto archive = getArchive(usbSlot);
+    if (!archive) return nullptr;
+
+    ZipArchive zip;
+    if (!zip.open(archive->archivePath)) return nullptr;
+
+    // First get track to find ANLZ path
+    auto pdbData = zip.extractToMemory("PIONEER/rekordbox/export.pdb");
+    if (pdbData.empty()) return nullptr;
+
+    PdbParser pdbParser;
+    if (!pdbParser.parseMemory(pdbData.data(), pdbData.size())) return nullptr;
+
+    auto track = pdbParser.findTrack(static_cast<uint32_t>(rekordboxId));
+    if (!track || track->analyzePath.empty()) return nullptr;
+
+    // Extract and parse ANLZ file
+    // analyzePath is typically like "/PIONEER/USBANLZ/P016/0000B535/ANLZ0000.DAT"
+    std::string anlzPath = track->analyzePath;
+    if (!anlzPath.empty() && anlzPath[0] == '/') {
+        anlzPath = anlzPath.substr(1);  // Remove leading slash
+    }
+
+    auto anlzData = zip.extractToMemory(anlzPath);
+    if (anlzData.empty()) return nullptr;
+
+    AnlzParser anlzParser;
+    if (!anlzParser.parseMemory(anlzData.data(), anlzData.size())) return nullptr;
+
+    return anlzParser.getBeatGrid();
 }
 
-std::shared_ptr<WaveformPreview> OpusProvider::getWaveformPreview(int /*usbSlot*/, int /*rekordboxId*/) const {
-    // TODO: Implement when archive parsing is available
-    return nullptr;
+std::shared_ptr<WaveformPreview> OpusProvider::getWaveformPreview(int usbSlot, int rekordboxId) const {
+    auto archive = getArchive(usbSlot);
+    if (!archive) return nullptr;
+
+    ZipArchive zip;
+    if (!zip.open(archive->archivePath)) return nullptr;
+
+    // Get track to find ANLZ path
+    auto pdbData = zip.extractToMemory("PIONEER/rekordbox/export.pdb");
+    if (pdbData.empty()) return nullptr;
+
+    PdbParser pdbParser;
+    if (!pdbParser.parseMemory(pdbData.data(), pdbData.size())) return nullptr;
+
+    auto track = pdbParser.findTrack(static_cast<uint32_t>(rekordboxId));
+    if (!track || track->analyzePath.empty()) return nullptr;
+
+    // Try .EXT file first for color waveform
+    std::string extPath = track->analyzePath;
+    if (extPath.size() > 4) {
+        extPath = extPath.substr(0, extPath.size() - 4) + ".EXT";
+    }
+    if (!extPath.empty() && extPath[0] == '/') {
+        extPath = extPath.substr(1);
+    }
+
+    auto extData = zip.extractToMemory(extPath);
+    if (!extData.empty()) {
+        AnlzParser anlzParser;
+        if (anlzParser.parseMemory(extData.data(), extData.size())) {
+            auto preview = anlzParser.getColorWaveformPreview();
+            if (preview) return preview;
+        }
+    }
+
+    // Fall back to .DAT file
+    std::string datPath = track->analyzePath;
+    if (!datPath.empty() && datPath[0] == '/') {
+        datPath = datPath.substr(1);
+    }
+
+    auto datData = zip.extractToMemory(datPath);
+    if (datData.empty()) return nullptr;
+
+    AnlzParser anlzParser;
+    if (!anlzParser.parseMemory(datData.data(), datData.size())) return nullptr;
+
+    return anlzParser.getWaveformPreview();
 }
 
-std::shared_ptr<WaveformDetail> OpusProvider::getWaveformDetail(int /*usbSlot*/, int /*rekordboxId*/) const {
-    // TODO: Implement when archive parsing is available
-    return nullptr;
+std::shared_ptr<WaveformDetail> OpusProvider::getWaveformDetail(int usbSlot, int rekordboxId) const {
+    auto archive = getArchive(usbSlot);
+    if (!archive) return nullptr;
+
+    ZipArchive zip;
+    if (!zip.open(archive->archivePath)) return nullptr;
+
+    // Get track to find ANLZ path
+    auto pdbData = zip.extractToMemory("PIONEER/rekordbox/export.pdb");
+    if (pdbData.empty()) return nullptr;
+
+    PdbParser pdbParser;
+    if (!pdbParser.parseMemory(pdbData.data(), pdbData.size())) return nullptr;
+
+    auto track = pdbParser.findTrack(static_cast<uint32_t>(rekordboxId));
+    if (!track || track->analyzePath.empty()) return nullptr;
+
+    // Try .EXT file first for color waveform
+    std::string extPath = track->analyzePath;
+    if (extPath.size() > 4) {
+        extPath = extPath.substr(0, extPath.size() - 4) + ".EXT";
+    }
+    if (!extPath.empty() && extPath[0] == '/') {
+        extPath = extPath.substr(1);
+    }
+
+    auto extData = zip.extractToMemory(extPath);
+    if (!extData.empty()) {
+        AnlzParser anlzParser;
+        if (anlzParser.parseMemory(extData.data(), extData.size())) {
+            auto detail = anlzParser.getColorWaveformDetail();
+            if (detail) return detail;
+        }
+    }
+
+    // Fall back to .DAT file
+    std::string datPath = track->analyzePath;
+    if (!datPath.empty() && datPath[0] == '/') {
+        datPath = datPath.substr(1);
+    }
+
+    auto datData = zip.extractToMemory(datPath);
+    if (datData.empty()) return nullptr;
+
+    AnlzParser anlzParser;
+    if (!anlzParser.parseMemory(datData.data(), datData.size())) return nullptr;
+
+    return anlzParser.getWaveformDetail();
 }
 
-std::shared_ptr<AlbumArt> OpusProvider::getAlbumArt(int /*usbSlot*/, int /*artworkId*/) const {
-    // TODO: Implement when archive parsing is available
+std::shared_ptr<AlbumArt> OpusProvider::getAlbumArt(int usbSlot, int artworkId) const {
+    auto archive = getArchive(usbSlot);
+    if (!archive) return nullptr;
+
+    ZipArchive zip;
+    if (!zip.open(archive->archivePath)) return nullptr;
+
+    // Get artwork path from PDB
+    auto pdbData = zip.extractToMemory("PIONEER/rekordbox/export.pdb");
+    if (pdbData.empty()) return nullptr;
+
+    PdbParser pdbParser;
+    if (!pdbParser.parseMemory(pdbData.data(), pdbData.size())) return nullptr;
+
+    auto artwork = pdbParser.findArtwork(static_cast<uint32_t>(artworkId));
+    if (!artwork || artwork->path.empty()) return nullptr;
+
+    // Extract artwork file
+    std::string artPath = artwork->path;
+    if (!artPath.empty() && artPath[0] == '/') {
+        artPath = artPath.substr(1);
+    }
+
+    auto artData = zip.extractToMemory(artPath);
+    if (artData.empty()) return nullptr;
+
+    // TODO: Create AlbumArt from image data
+    // For now return nullptr as AlbumArt construction needs image parsing
+    (void)artData;
     return nullptr;
 }
 

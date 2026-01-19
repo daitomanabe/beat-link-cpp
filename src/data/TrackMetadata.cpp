@@ -171,4 +171,32 @@ std::string TrackMetadata::toString() const {
     return std::format("TrackMetadata[reference:{}, title:{}]", trackReference_.toString(), title_);
 }
 
+std::shared_ptr<TrackMetadata> TrackMetadata::Builder::build() {
+    auto metadata = std::shared_ptr<TrackMetadata>(new TrackMetadata());
+
+    metadata->trackReference_ = std::move(trackReference_);
+    metadata->trackType_ = trackType_;
+    metadata->timestampNanos_ = std::chrono::duration_cast<std::chrono::nanoseconds>(
+        std::chrono::steady_clock::now().time_since_epoch()).count();
+
+    metadata->title_ = std::move(title_);
+    metadata->artist_ = std::move(artist_);
+    metadata->album_ = std::move(album_);
+    metadata->genre_ = std::move(genre_);
+    metadata->label_ = std::move(label_);
+    metadata->key_ = std::move(key_);
+    metadata->comment_ = std::move(comment_);
+    metadata->dateAdded_ = std::move(dateAdded_);
+    metadata->duration_ = duration_;
+    metadata->tempo_ = tempo_;
+    metadata->rating_ = rating_;
+    metadata->year_ = year_;
+    metadata->bitRate_ = bitRate_;
+    metadata->artworkId_ = artworkId_;
+    metadata->color_ = std::move(color_);
+    metadata->cueList_ = std::move(cueList_);
+
+    return metadata;
+}
+
 } // namespace beatlink::data

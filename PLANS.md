@@ -148,36 +148,34 @@ if (auto* device = deviceFinder.getDevice(handle)) {
 
 ---
 
-### Phase 3: OpusProvider 実装
+### Phase 3: OpusProvider 実装 ✅ 完了
 
 **目標**: Opus Quad / XDJ-AZ メタデータ取得
 
-#### 3.1 依存ライブラリ追加
-- [ ] CMakeLists.txt 更新:
+#### 3.1 依存ライブラリ追加 ✅ 完了
+- [x] CMakeLists.txt 更新:
   - miniz (ZIPアーカイブ)
   - sqlite3 amalgamation
   - kaitai_runtime
   - utf8proc
 
-#### 3.2 基盤クラス
-- [ ] `ZipArchive.hpp/cpp` - miniz ラッパー
-- [ ] `SqliteConnection.hpp/cpp` - sqlite3 ラッパー
-- [ ] `AnlzParser.hpp/cpp` - Kaitai ラッパー
+#### 3.2 基盤クラス ✅ 完了
+- [x] `ZipArchive.hpp/cpp` - miniz ラッパー
+- [x] `SqliteConnection.hpp/cpp` - sqlite3 ラッパー
+- [x] `AnlzParser.hpp/cpp` - Kaitai ラッパー
+- [x] `PdbParser.hpp/cpp` - rekordbox PDBパーサー
 
-#### 3.3 Kaitai パーサー生成
-```bash
-kaitai-struct-compiler -t cpp_stl --outdir src/generated \
-    external/crate-digger-cpp/src/main/kaitai/rekordbox_anlz.ksy \
-    external/crate-digger-cpp/src/main/kaitai/rekordbox_pdb.ksy
-```
+#### 3.3 Kaitai パーサー生成 ✅ 完了
+- [x] `rekordbox_anlz.h/cpp` - ANLZ解析ファイルパーサー
+- [x] `rekordbox_pdb.h/cpp` - PDBデータベースパーサー
 
-#### 3.4 OpusProvider API
-- [ ] `mountArchive()` / `unmountArchive()`
-- [ ] `getTrackMetadata()`
-- [ ] `getBeatGrid()`
-- [ ] `getCueList()`
-- [ ] `getWaveformPreview()` / `getWaveformDetail()`
-- [ ] `findMatchingUsbSlotForTrack()`
+#### 3.4 OpusProvider API ✅ 完了
+- [x] `attachMetadataArchive()` / `detachMetadataArchive()`
+- [x] `getTrackMetadata()` - PdbParser + TrackMetadata::Builder使用
+- [x] `getBeatGrid()` - AnlzParser使用
+- [x] `getWaveformPreview()` / `getWaveformDetail()` - AnlzParser使用
+- [x] `getAlbumArt()` - パス取得まで実装（画像パース未実装）
+- [x] PSSI マッチング基盤（SHA-1ハッシュ）
 
 ---
 
@@ -305,17 +303,19 @@ beat-link-cpp/
 | ✅ | 1 | VirtualCdj | 実装済み |
 | ✅ | 1.5 | data/バグ修正 | 完了 |
 | ✅ | 2 | デバイス管理 | 実装済み |
-| 🟢 中 | 3 | OpusProvider | 依存関係整備後 |
-| 🔵 低 | 4-6 | 拡張機能 | 完成度向上 |
+| ✅ | 3 | OpusProvider | 完了 |
+| 🟢 中 | 4 | メタデータ取得拡張 | 次フェーズ |
+| 🔵 低 | 5-6 | Python Bindings, 品質向上 | 将来 |
 
 ---
 
 ## 次のステップ
 
-1. **Phase 3**: OpusProvider の完成（依存ライブラリ連携）
-2. **PdbParser**: toTrackMetadata() の完全実装
+1. **Phase 4**: MetadataFinder / TimeFinder / BeatGridFinder の実装
+2. **AlbumArt**: 画像パース実装（JPEG/PNG対応）
 3. **段階的移行**: 旧コンストラクタ呼び出しを新create()関数に移行
 4. **警告対処**: codecvt deprecated 警告を C++20 代替実装に置換
+5. **テスト**: 実機テスト・ユニットテスト整備
 
 ---
 

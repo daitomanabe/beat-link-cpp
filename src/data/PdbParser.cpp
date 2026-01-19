@@ -316,12 +316,53 @@ void PdbParser::forEachTrack(std::function<bool(const PdbTrack&)> callback) cons
 }
 
 std::shared_ptr<TrackMetadata> PdbParser::toTrackMetadata(const PdbTrack& track) const {
-    // TODO: This function needs to be reimplemented to properly construct TrackMetadata
-    // The current implementation incorrectly tries to set private members directly.
-    // TrackMetadata requires a DataReference, TrackType, Message vector, and CueList
-    // to be constructed properly.
-    (void)track;  // Suppress unused parameter warning
-    return nullptr;
+    // Create DataReference (using slot 0 for local/USB, rekordboxId = track.id)
+    DataReference ref(0, TrackSourceSlot::USB_SLOT, static_cast<int>(track.id));
+
+    // Build metadata using the Builder pattern
+    TrackMetadata::Builder builder;
+    builder.setTrackReference(std::move(ref))
+           .setTrackType(TrackType::REKORDBOX)
+           .setTitle(track.title)
+           .setComment(track.comment)
+           .setDateAdded(track.dateAdded)
+           .setDuration(static_cast<int>(track.duration))
+           .setTempo(static_cast<int>(track.tempo))
+           .setRating(static_cast<int>(track.rating))
+           .setYear(static_cast<int>(track.year))
+           .setBitRate(static_cast<int>(track.bitrate))
+           .setArtworkId(static_cast<int>(track.artworkId));
+
+    // Look up artist name
+    if (track.artistId != 0) {
+        auto artist = findArtist(track.artistId);
+        if (artist) {
+            builder.setArtist(artist->name, static_cast<int>(artist->id));
+        }
+    }
+
+    // Look up album name
+    if (track.albumId != 0) {
+        auto album = findAlbum(track.albumId);
+        if (album) {
+            builder.setAlbum(album->name, static_cast<int>(album->id));
+        }
+    }
+
+    // Look up genre name
+    if (track.genreId != 0) {
+        auto genre = findGenre(track.genreId);
+        if (genre) {
+            builder.setGenre(genre->name, static_cast<int>(genre->id));
+        }
+    }
+
+    // Set color if available (colorId maps to rekordbox color codes)
+    if (track.colorId != 0) {
+        builder.setColor(static_cast<int>(track.colorId));
+    }
+
+    return builder.build();
 }
 
 } // namespace beatlink::data
