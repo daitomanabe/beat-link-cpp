@@ -1,10 +1,36 @@
-Eclipse Public License - v 2.0
+# Beat Link C++ License
 
-    THE ACCOMPANYING PROGRAM IS PROVIDED UNDER THE TERMS OF THIS ECLIPSE
-    PUBLIC LICENSE ("AGREEMENT"). ANY USE, REPRODUCTION OR DISTRIBUTION
-    OF THE PROGRAM CONSTITUTES RECIPIENT'S ACCEPTANCE OF THIS AGREEMENT.
+## Copyright
 
-1. DEFINITIONS
+**Original Java Implementation:**
+Copyright (c) 2016-2024 [Deep Symmetry, LLC](https://deepsymmetry.org)
+Original repository: https://github.com/Deep-Symmetry/beat-link
+
+**C++20 Port:**
+Copyright (c) 2024-2026 [Daito Manabe](https://daito.ws) / [Rhizomatiks](https://rhizomatiks.com)
+This repository: https://github.com/daitomanabe/beat-link-cpp
+
+---
+
+## About This Port
+
+Beat Link C++ is a faithful C++20 port of the original Java Beat Link library created by James Elliott at Deep Symmetry. This port was developed by Daito Manabe to enable native C++ applications and Python scripts to interact with Pioneer DJ equipment using the DJ Link protocol.
+
+### Acknowledgments
+
+Special thanks to:
+- **James Elliott** and **Deep Symmetry** for creating the original Beat Link library and the comprehensive [DJ Link protocol analysis](https://djl-analysis.deepsymmetry.org/)
+- The DJ Link reverse engineering community
+
+---
+
+# Eclipse Public License - v 2.0
+
+THE ACCOMPANYING PROGRAM IS PROVIDED UNDER THE TERMS OF THIS ECLIPSE
+PUBLIC LICENSE ("AGREEMENT"). ANY USE, REPRODUCTION OR DISTRIBUTION
+OF THE PROGRAM CONSTITUTES RECIPIENT'S ACCEPTANCE OF THIS AGREEMENT.
+
+## 1. DEFINITIONS
 
 "Contribution" means:
 
@@ -14,6 +40,7 @@ Eclipse Public License - v 2.0
   b) in the case of each subsequent Contributor:
      i) changes to the Program, and
      ii) additions to the Program;
+
   where such changes and/or additions to the Program originate from
   and are Distributed by that particular Contributor. A Contribution
   "originates" from a Contributor if it was added to the Program by
@@ -42,10 +69,10 @@ represent, as a whole, an original work of authorship.
 results from an addition to, deletion from, or modification of the
 contents of the Program, including, for purposes of clarity any new file
 in Source Code form that contains any contents of the Program. Modified
-Works shall not include works that contain only declarations,
-interfaces, types, classes, structures, or files of the Program solely
-in each case in order to link to, bind by name, or subclass the Program
-or Modified Works thereof.
+Works shall not include works that contain only declarations, interfaces,
+types, classes, structures, or files of the Program solely in each case
+in order to link to, bind by name, or subclass the Program or Modified
+Works thereof.
 
 "Distribute" means the acts of a) distributing or b) making available
 in any manner that enables the transfer of a copy.
@@ -59,7 +86,7 @@ Version 2.0, or any later versions of that license, including any
 exceptions or additional permissions as identified by the initial
 Contributor.
 
-2. GRANT OF RIGHTS
+## 2. GRANT OF RIGHTS
 
   a) Subject to the terms of this Agreement, each Contributor hereby
   grants Recipient a non-exclusive, worldwide, royalty-free copyright
@@ -103,7 +130,7 @@ Contributor.
   receipt of the Program under the terms of a Secondary License
   (if permitted under the terms of Section 3).
 
-3. REQUIREMENTS
+## 3. REQUIREMENTS
 
 3.1 If a Contributor Distributes the Program in any form, then:
 
@@ -117,21 +144,21 @@ Contributor.
   b) the Contributor may Distribute the Program under a license
   different than this Agreement, provided that such license:
      i) effectively disclaims on behalf of all other Contributors all
-     warranties and conditions, express and implied, including
-     warranties or conditions of title and non-infringement, and
-     implied warranties or conditions of merchantability and fitness
-     for a particular purpose;
+        warranties and conditions, express and implied, including
+        warranties or conditions of title and non-infringement, and
+        implied warranties or conditions of merchantability and fitness
+        for a particular purpose;
 
      ii) effectively excludes on behalf of all other Contributors all
-     liability for damages, including direct, indirect, special,
-     incidental and consequential damages, such as lost profits;
+         liability for damages, including direct, indirect, special,
+         incidental and consequential damages, such as lost profits;
 
      iii) does not attempt to limit or alter the recipients' rights
-     in the Source Code under section 3.2; and
+          in the Source Code under section 3.2; and
 
      iv) requires any subsequent distribution of the Program by any
-     party to be under a license that satisfies the requirements
-     of this section 3.
+         party to be under a license that satisfies the requirements
+         of this section 3.
 
 3.2 When the Program is Distributed as Source Code:
 
@@ -151,7 +178,7 @@ of liability ("notices") contained within the Program from any copy of
 the Program which they Distribute, provided that Contributors may add
 their own appropriate notices.
 
-4. COMMERCIAL DISTRIBUTION
+## 4. COMMERCIAL DISTRIBUTION
 
 Commercial distributors of software may accept certain responsibilities
 with respect to end users, business partners and the like. While this
@@ -165,15 +192,16 @@ other Contributor ("Indemnified Contributor") against any losses,
 damages and costs (collectively "Losses") arising from claims, lawsuits
 and other legal actions brought by a third party against the Indemnified
 Contributor to the extent caused by the acts or omissions of such
-Commercial Contributor in connection with its distribution of the Program
-in a commercial product offering. The obligations in this section do not
-apply to any claims or Losses relating to any actual or alleged
-intellectual property infringement. In order to qualify, an Indemnified
-Contributor must: a) promptly notify the Commercial Contributor in
-writing of such claim, and b) allow the Commercial Contributor to control,
-and cooperate with the Commercial Contributor in, the defense and any
-related settlement negotiations. The Indemnified Contributor may
-participate in any such claim at its own expense.
+Commercial Contributor in connection with its distribution of the
+Program in a commercial product offering. The obligations in this
+section do not apply to any claims or Losses relating to any actual or
+alleged intellectual property infringement. In order to qualify, an
+Indemnified Contributor must: a) promptly notify the Commercial
+Contributor in writing of such claim, and b) allow the Commercial
+Contributor to control, and cooperate with the Commercial Contributor
+in, the defense and any related settlement negotiations. The
+Indemnified Contributor may participate in any such claim at its own
+expense.
 
 For example, a Contributor might include the Program in a commercial
 product offering, Product X. That Contributor is then a Commercial
@@ -181,12 +209,12 @@ Contributor. If that Commercial Contributor then makes performance
 claims, or offers warranties related to Product X, those performance
 claims and warranties are such Commercial Contributor's responsibility
 alone. Under this section, the Commercial Contributor would have to
-defend claims against the other Contributors related to those performance
-claims and warranties, and if a court requires any other Contributor to
-pay any damages as a result, the Commercial Contributor must pay
-those damages.
+defend claims against the other Contributors related to those
+performance claims and warranties, and if a court requires any other
+Contributor to pay any damages as a result, the Commercial Contributor
+must pay those damages.
 
-5. NO WARRANTY
+## 5. NO WARRANTY
 
 EXCEPT AS EXPRESSLY SET FORTH IN THIS AGREEMENT, AND TO THE EXTENT
 PERMITTED BY APPLICABLE LAW, THE PROGRAM IS PROVIDED ON AN "AS IS"
@@ -200,7 +228,7 @@ including but not limited to the risks and costs of program errors,
 compliance with applicable laws, damage to or loss of data, programs
 or equipment, and unavailability or interruption of operations.
 
-6. DISCLAIMER OF LIABILITY
+## 6. DISCLAIMER OF LIABILITY
 
 EXCEPT AS EXPRESSLY SET FORTH IN THIS AGREEMENT, AND TO THE EXTENT
 PERMITTED BY APPLICABLE LAW, NEITHER RECIPIENT NOR ANY CONTRIBUTORS
@@ -212,7 +240,7 @@ ARISING IN ANY WAY OUT OF THE USE OR DISTRIBUTION OF THE PROGRAM OR THE
 EXERCISE OF ANY RIGHTS GRANTED HEREUNDER, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGES.
 
-7. GENERAL
+## 7. GENERAL
 
 If any provision of this Agreement is invalid or unenforceable under
 applicable law, it shall not affect the validity or enforceability of
@@ -220,10 +248,10 @@ the remainder of the terms of this Agreement, and without further
 action by the parties hereto, such provision shall be reformed to the
 minimum extent necessary to make such provision valid and enforceable.
 
-If Recipient institutes patent litigation against any entity
-(including a cross-claim or counterclaim in a lawsuit) alleging that the
-Program itself (excluding combinations of the Program with other software
-or hardware) infringes such Recipient's patent(s), then such Recipient's
+If Recipient institutes patent litigation against any entity (including
+a cross-claim or counterclaim in a lawsuit) alleging that the Program
+itself (excluding combinations of the Program with other software or
+hardware) infringes such Recipient's patent(s), then such Recipient's
 rights granted under Section 2(b) shall terminate as of the date such
 litigation is filed.
 
@@ -259,19 +287,19 @@ under this Agreement are reserved. Nothing in this Agreement is intended
 to be enforceable by any entity that is not a Contributor or Recipient.
 No third-party beneficiary rights are created under this Agreement.
 
-Exhibit A - Form of Secondary Licenses Notice
+## Exhibit A - Form of Secondary Licenses Notice
 
-"This Source Code may also be made available under the following 
-Secondary Licenses when the conditions for such availability set forth 
+"This Source Code may also be made available under the following
+Secondary Licenses when the conditions for such availability set forth
 in the Eclipse Public License, v. 2.0 are satisfied: {name license(s),
 version(s), and exceptions or additional permissions here}."
 
-  Simply including a copy of this Agreement, including this Exhibit A
-  is not sufficient to license the Source Code under Secondary Licenses.
+Simply including a copy of this Agreement, including this Exhibit A
+is not sufficient to license the Source Code under Secondary Licenses.
 
-  If it is not possible or desirable to put the notice in a particular
-  file, then You may include the notice in a location (such as a LICENSE
-  file in a relevant directory) where a recipient would be likely to
-  look for such a notice.
+If it is not possible or desirable to put the notice in a particular
+file, then You may include the notice in a location (such as a LICENSE
+file in a relevant directory) where a recipient would be likely to
+look for such a notice.
 
-  You may add additional accurate notices of copyright ownership.
+You may add additional accurate notices of copyright ownership.
