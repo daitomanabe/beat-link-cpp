@@ -4,107 +4,107 @@
 [![License: EPL-2.0](https://img.shields.io/badge/License-EPL--2.0-green.svg)](LICENSE.md)
 [![Python 3.8+](https://img.shields.io/badge/Python-3.8%2B-blue.svg)](https://www.python.org/)
 
-**[日本語版 README はこちら / Japanese README](README_JA.md)**
+**[English README](README.md)**
 
-A C++20 implementation of the Pioneer DJ Link protocol for real-time communication with CDJ, XDJ, and DJM equipment.
-
----
-
-## About
-
-**Beat Link C++** is a faithful C++20 port of the original [Java Beat Link](https://github.com/Deep-Symmetry/beat-link) library created by [James Elliott](https://github.com/brunchboy) at [Deep Symmetry](https://deepsymmetry.org).
-
-This port was developed by **[Daito Manabe](https://daito.ws)** / **[Rhizomatiks](https://rhizomatiks.com)** to enable native C++ applications and Python scripts to interact with Pioneer DJ equipment using the DJ Link protocol.
-
-### Features
-
-| Feature | Description |
-|---------|-------------|
-| **Device Discovery** | Automatic detection of CDJ, XDJ, DJM devices on the network |
-| **Beat Synchronization** | Real-time beat timing, BPM, and bar position |
-| **Track Metadata** | Title, artist, album, genre, key, duration, rating |
-| **Cue Points** | Hot cues, memory points, loops with colors and comments |
-| **Waveforms** | Preview and detailed waveform data |
-| **Beat Grids** | Beat positions and tempo changes |
-| **Album Art** | JPEG/PNG artwork retrieval |
-| **Player Control** | Tempo master, sync, pitch control |
-| **Python Bindings** | Full-featured Python API (105+ functions) |
-| **Cross-Platform** | macOS, Linux, Windows |
+Pioneer DJ Link プロトコルの C++20 実装。CDJ、XDJ、DJM 機器とのリアルタイム通信を実現します。
 
 ---
 
-## Table of Contents
+## 概要
 
-1. [Installation](#installation)
-2. [Quick Start](#quick-start)
-3. [Architecture](#architecture)
-4. [C++ API Reference](#c-api-reference)
-5. [Python API Reference](#python-api-reference)
-6. [Protocol Reference](#protocol-reference)
-7. [Examples](#examples)
-8. [Testing](#testing)
-9. [Troubleshooting](#troubleshooting)
-10. [License](#license)
+**Beat Link C++** は、[Deep Symmetry](https://deepsymmetry.org) の [James Elliott](https://github.com/brunchboy) 氏が開発した [Java Beat Link](https://github.com/Deep-Symmetry/beat-link) ライブラリの C++20 移植版です。
+
+本ポートは **[真鍋大度](https://daito.ws)** / **[Rhizomatiks](https://rhizomatiks.com)** により開発されました。ネイティブ C++ アプリケーションや Python スクリプトから DJ Link プロトコルを通じて Pioneer DJ 機器と通信することを可能にします。
+
+### 機能一覧
+
+| 機能 | 説明 |
+|------|------|
+| **デバイス検出** | ネットワーク上の CDJ、XDJ、DJM を自動検出 |
+| **ビート同期** | リアルタイムのビートタイミング、BPM、小節位置 |
+| **トラックメタデータ** | タイトル、アーティスト、アルバム、ジャンル、キー、長さ、レーティング |
+| **キューポイント** | ホットキュー、メモリーポイント、ループ（カラー・コメント付き） |
+| **波形** | プレビュー波形と詳細波形データ |
+| **ビートグリッド** | ビート位置とテンポ変化 |
+| **アルバムアート** | JPEG/PNG アートワークの取得 |
+| **プレイヤー制御** | テンポマスター、シンク、ピッチコントロール |
+| **Python バインディング** | フル機能の Python API（105以上の関数） |
+| **クロスプラットフォーム** | macOS、Linux、Windows 対応 |
 
 ---
 
-## Installation
+## 目次
 
-### Requirements
+1. [インストール](#インストール)
+2. [クイックスタート](#クイックスタート)
+3. [アーキテクチャ](#アーキテクチャ)
+4. [C++ API リファレンス](#c-api-リファレンス)
+5. [Python API リファレンス](#python-api-リファレンス)
+6. [プロトコルリファレンス](#プロトコルリファレンス)
+7. [サンプル](#サンプル)
+8. [テスト](#テスト)
+9. [トラブルシューティング](#トラブルシューティング)
+10. [ライセンス](#ライセンス)
 
-- **OS**: macOS 10.15+, Linux (Ubuntu 20.04+), Windows 10+
-- **Compiler**: C++20 compatible
-  - GCC 11+
-  - Clang 14+
-  - MSVC 2022+
-- **CMake**: 3.15+
-- **Python**: 3.8+ (for Python bindings)
-- **Network**: Same LAN as DJ Link devices
+---
 
-### Build from Source
+## インストール
+
+### 動作要件
+
+- **OS**: macOS 10.15 以降、Linux（Ubuntu 20.04 以降）、Windows 10 以降
+- **コンパイラ**: C++20 対応
+  - GCC 11 以降
+  - Clang 14 以降
+  - MSVC 2022 以降
+- **CMake**: 3.15 以降
+- **Python**: 3.8 以降（Python バインディング用）
+- **ネットワーク**: DJ Link 機器と同じ LAN 内
+
+### ソースからビルド
 
 ```bash
 git clone https://github.com/daitomanabe/beat-link-cpp.git
 cd beat-link-cpp
 mkdir build && cd build
 
-# Standard build
+# 標準ビルド
 cmake ..
 make -j$(nproc)
 
-# With Python bindings
+# Python バインディング付き
 cmake .. -DBEATLINK_BUILD_PYTHON=ON
 make beatlink_py
 
-# With unit tests
+# ユニットテスト付き
 cmake .. -DBEATLINK_BUILD_TESTS=ON
 make beatlink_tests
 ```
 
-### Build Options
+### ビルドオプション
 
-| Option | Default | Description |
-|--------|---------|-------------|
-| `BEATLINK_BUILD_PYTHON` | OFF | Build Python bindings |
-| `BEATLINK_BUILD_TESTS` | OFF | Build unit tests |
-| `BEATLINK_USE_SQLCIPHER` | OFF | Use SQLCipher for encrypted databases |
+| オプション | デフォルト | 説明 |
+|----------|---------|------|
+| `BEATLINK_BUILD_PYTHON` | OFF | Python バインディングをビルド |
+| `BEATLINK_BUILD_TESTS` | OFF | ユニットテストをビルド |
+| `BEATLINK_USE_SQLCIPHER` | OFF | 暗号化データベース用に SQLCipher を使用 |
 
-### Build Outputs
+### ビルド成果物
 
-| File | Description |
-|------|-------------|
-| `libbeatlink.a` | Static library |
-| `beatlink_example` | Simple beat listener example |
-| `beatlink_gui` | GUI monitor (Dear ImGui) |
-| `beatlink_cli` | CLI tool with `--schema` support |
-| `beatlink_py.*.so` | Python module |
-| `beatlink_tests` | Unit tests |
+| ファイル | 説明 |
+|---------|------|
+| `libbeatlink.a` | スタティックライブラリ |
+| `beatlink_example` | シンプルなビートリスナーのサンプル |
+| `beatlink_gui` | GUI モニター（Dear ImGui 使用） |
+| `beatlink_cli` | `--schema` 対応の CLI ツール |
+| `beatlink_py.*.so` | Python モジュール |
+| `beatlink_tests` | ユニットテスト |
 
 ---
 
-## Quick Start
+## クイックスタート
 
-### C++ - Minimal Example
+### C++ - 最小サンプル
 
 ```cpp
 #include <beatlink/BeatLink.hpp>
@@ -114,46 +114,46 @@ make beatlink_tests
 int main() {
     using namespace beatlink;
 
-    // Get singleton instances
+    // シングルトンインスタンスを取得
     auto& deviceFinder = DeviceFinder::getInstance();
     auto& beatFinder = BeatFinder::getInstance();
 
-    // Register callbacks
+    // コールバックを登録
     deviceFinder.addDeviceFoundListener([](const DeviceAnnouncement& d) {
-        std::cout << "Found: " << d.getDeviceName()
+        std::cout << "発見: " << d.getDeviceName()
                   << " (#" << d.getDeviceNumber() << ")\n";
     });
 
     beatFinder.addBeatListener([](const Beat& b) {
-        std::cout << "Beat " << b.getBeatWithinBar() << "/4 @ "
+        std::cout << "ビート " << b.getBeatWithinBar() << "/4 @ "
                   << b.getEffectiveTempo() << " BPM\n";
     });
 
-    // Start services
+    // サービスを開始
     deviceFinder.start();
     beatFinder.start();
 
-    // Run for 60 seconds
+    // 60秒間実行
     std::this_thread::sleep_for(std::chrono::seconds(60));
 
-    // Cleanup
+    // クリーンアップ
     beatFinder.stop();
     deviceFinder.stop();
     return 0;
 }
 ```
 
-### Python - Minimal Example
+### Python - 最小サンプル
 
 ```python
 import beatlink_py as bl
 import time
 
 def on_beat(beat):
-    print(f"Beat {beat.beat_in_bar}/4 @ {beat.effective_bpm:.2f} BPM")
+    print(f"ビート {beat.beat_in_bar}/4 @ {beat.effective_bpm:.2f} BPM")
 
 def on_device(device):
-    print(f"Found: {device.device_name} (#{device.device_number})")
+    print(f"発見: {device.device_name} (#{device.device_number})")
 
 bl.add_beat_listener(on_beat)
 bl.add_device_found_listener(on_device)
@@ -174,13 +174,13 @@ bl.clear_all_listeners()
 
 ---
 
-## Architecture
+## アーキテクチャ
 
-### Component Overview
+### コンポーネント概要
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                      Beat Link C++ Architecture                  │
+│                   Beat Link C++ アーキテクチャ                    │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                  │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐          │
@@ -190,13 +190,13 @@ bl.clear_all_listeners()
 │         │                 │                 │                    │
 │         ▼                 ▼                 ▼                    │
 │  ┌─────────────────────────────────────────────────────┐        │
-│  │                   Listener System                    │        │
+│  │                   リスナーシステム                    │        │
 │  │  DeviceAnnouncementListener, BeatListener,          │        │
-│  │  DeviceUpdateListener, MasterListener, etc.         │        │
+│  │  DeviceUpdateListener, MasterListener 等            │        │
 │  └─────────────────────────────────────────────────────┘        │
 │                                                                  │
 │  ┌─────────────────────────────────────────────────────┐        │
-│  │                    Data Finders                      │        │
+│  │                   データファインダー                  │        │
 │  │  MetadataFinder, WaveformFinder, BeatGridFinder,    │        │
 │  │  ArtFinder, TimeFinder, SignatureFinder             │        │
 │  └──────────────────────┬──────────────────────────────┘        │
@@ -204,12 +204,12 @@ bl.clear_all_listeners()
 │                         ▼                                        │
 │  ┌─────────────────────────────────────────────────────┐        │
 │  │              DBServer (TCP 12523)                    │        │
-│  │  Query track metadata from players' databases       │        │
+│  │  プレイヤーのデータベースからトラックメタデータを取得    │        │
 │  └──────────────────────┬──────────────────────────────┘        │
 │                         │                                        │
 │                         ▼                                        │
 │  ┌─────────────────────────────────────────────────────┐        │
-│  │                   Data Types                         │        │
+│  │                    データ型                          │        │
 │  │  TrackMetadata, BeatGrid, CueList, WaveformPreview, │        │
 │  │  WaveformDetail, AlbumArt, DataReference            │        │
 │  └─────────────────────────────────────────────────────┘        │
@@ -217,21 +217,21 @@ bl.clear_all_listeners()
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### Service Startup Order
+### サービス起動順序
 
 ```cpp
-// Recommended startup order for full functionality:
+// フル機能を使用するための推奨起動順序:
 
-// 1. Device discovery (required)
+// 1. デバイス検出（必須）
 DeviceFinder::getInstance().start();
 
-// 2. Beat monitoring (optional)
+// 2. ビート監視（オプション）
 BeatFinder::getInstance().start();
 
-// 3. Virtual CDJ - join the network as a player (required for metadata)
+// 3. Virtual CDJ - プレイヤーとしてネットワークに参加（メタデータ取得に必須）
 VirtualCdj::getInstance().start();
 
-// 4. Metadata services (require VirtualCdj)
+// 4. メタデータサービス（VirtualCdj が必要）
 data::MetadataFinder::getInstance().start();
 data::BeatGridFinder::getInstance().start();
 data::WaveformFinder::getInstance().start();
@@ -241,13 +241,13 @@ data::TimeFinder::getInstance().start();
 
 ---
 
-## C++ API Reference
+## C++ API リファレンス
 
-### Core Classes
+### コアクラス
 
 #### DeviceFinder
 
-Discovers DJ Link devices on the network (UDP port 50000).
+ネットワーク上の DJ Link デバイスを検出します（UDP ポート 50000）。
 
 ```cpp
 class DeviceFinder {
@@ -268,7 +268,7 @@ class DeviceFinder {
 
 #### BeatFinder
 
-Receives beat packets from players (UDP port 50001).
+プレイヤーからビートパケットを受信します（UDP ポート 50001）。
 
 ```cpp
 class BeatFinder {
@@ -285,8 +285,8 @@ class BeatFinder {
 
 #### VirtualCdj
 
-Join the DJ Link network as a virtual player (UDP port 50002).
-Required for metadata retrieval.
+仮想プレイヤーとして DJ Link ネットワークに参加します（UDP ポート 50002）。
+メタデータ取得に必要です。
 
 ```cpp
 class VirtualCdj {
@@ -308,7 +308,7 @@ class VirtualCdj {
 };
 ```
 
-### Data Types
+### データ型
 
 #### Beat
 
@@ -317,15 +317,15 @@ class Beat {
     int getDeviceNumber() const;
     std::string getDeviceName() const;
 
-    int getBpm() const;              // BPM * 100 (e.g., 12850 = 128.50 BPM)
-    int getPitch() const;            // Raw pitch value
-    double getEffectiveTempo() const; // BPM adjusted for pitch
+    int getBpm() const;              // BPM * 100（例: 12850 = 128.50 BPM）
+    int getPitch() const;            // 生のピッチ値
+    double getEffectiveTempo() const; // ピッチ補正後の BPM
 
     int getBeatWithinBar() const;    // 1-4
     bool isBeatWithinBarMeaningful() const;
 
-    int64_t getNextBeat() const;     // ms until next beat
-    int64_t getNextBar() const;      // ms until next bar
+    int64_t getNextBeat() const;     // 次のビートまでの ms
+    int64_t getNextBar() const;      // 次の小節までの ms
     int64_t getSecondBeat() const;
     int64_t getFourthBeat() const;
     int64_t getEighthBeat() const;
@@ -339,24 +339,24 @@ class CdjStatus {
     int getDeviceNumber() const;
     std::string getDeviceName() const;
 
-    // Play state
+    // 再生状態
     bool isPlaying() const;
     bool isAtCue() const;
     bool isTrackLoaded() const;
     PlayState getPlayState() const;
 
-    // Tempo
+    // テンポ
     int getBpm() const;
     int getPitch() const;
     double getEffectiveTempo() const;
     int getBeatWithinBar() const;
 
-    // Sync
+    // シンク
     bool isTempoMaster() const;
     bool isSynced() const;
     bool isOnAir() const;
 
-    // Track source
+    // トラックソース
     int getTrackSourcePlayer() const;
     TrackSourceSlot getTrackSourceSlot() const;
     TrackType getTrackType() const;
@@ -380,7 +380,7 @@ class TrackMetadata {
     std::string getDateAdded() const;
 
     int getTempo() const;           // BPM * 100
-    int getDuration() const;        // seconds
+    int getDuration() const;        // 秒
     int getRating() const;          // 0-5
     int getYear() const;
     int getTrackNumber() const;
@@ -397,10 +397,10 @@ class TrackMetadata {
 ```cpp
 class CueList {
     struct Entry {
-        int hotCueNumber;           // 0 = memory point, 1-8 = hot cue
+        int hotCueNumber;           // 0 = メモリーポイント、1-8 = ホットキュー
         bool isLoop;
         int64_t cueTimeMs;
-        int64_t loopEndMs;          // only if isLoop
+        int64_t loopEndMs;          // ループの場合のみ
         int colorId;
         std::string comment;
     };
@@ -417,7 +417,7 @@ class CueList {
 ```cpp
 class BeatGrid {
     int getBeatCount() const;
-    int getBpm(int beatNumber) const;         // BPM * 100 at beat
+    int getBpm(int beatNumber) const;         // そのビートでの BPM * 100
     int getBeatWithinBar(int beatNumber) const;
     int64_t getTimeWithinTrack(int beatNumber) const;  // ms
 
@@ -442,40 +442,40 @@ class WaveformDetail {
 };
 ```
 
-### Data Finders
+### データファインダー
 
 ```cpp
 namespace data {
-    // Get track metadata for a player
+    // プレイヤーのトラックメタデータを取得
     MetadataFinder::getInstance().getLatestMetadataFor(int player);
 
-    // Get beat grid
+    // ビートグリッドを取得
     BeatGridFinder::getInstance().getLatestBeatGridFor(int player);
 
-    // Get waveforms
+    // 波形を取得
     WaveformFinder::getInstance().getLatestPreviewFor(int player);
     WaveformFinder::getInstance().getLatestDetailFor(int player);
 
-    // Get album art
+    // アルバムアートを取得
     ArtFinder::getInstance().getLatestArtFor(int player);
 }
 ```
 
-### Utility Functions
+### ユーティリティ関数
 
 ```cpp
 namespace beatlink {
     class Util {
-        // Pitch conversion
+        // ピッチ変換
         static double pitchToPercentage(int64_t pitch);
         static double pitchToMultiplier(int64_t pitch);
         static int percentageToPitch(double percentage);
 
-        // Time conversion
+        // 時間変換
         static int64_t halfFrameToTime(int64_t halfFrame);
         static int64_t timeToHalfFrame(int64_t timeMs);
 
-        // Byte operations
+        // バイト操作
         static int64_t bytesToNumber(const uint8_t* buf, size_t start, size_t len);
         static std::string formatMac(const std::array<uint8_t, 6>& mac);
     };
@@ -484,36 +484,36 @@ namespace beatlink {
 
 ---
 
-## Python API Reference
+## Python API リファレンス
 
-### Module: `beatlink_py`
+### モジュール: `beatlink_py`
 
 ```python
 import beatlink_py as bl
 
-# Version
+# バージョン
 print(bl.__version__)  # "0.2.0"
 ```
 
-### Service Control
+### サービス制御
 
 ```python
-# Device discovery
-bl.start_device_finder()        # Start device discovery
-bl.stop_device_finder()         # Stop device discovery
-bl.is_device_finder_running()   # Check if running
+# デバイス検出
+bl.start_device_finder()        # デバイス検出を開始
+bl.stop_device_finder()         # デバイス検出を停止
+bl.is_device_finder_running()   # 実行中か確認
 
-# Beat monitoring
+# ビート監視
 bl.start_beat_finder()
 bl.stop_beat_finder()
 bl.is_beat_finder_running()
 
-# Virtual CDJ (required for metadata)
+# Virtual CDJ（メタデータ取得に必要）
 bl.start_virtual_cdj()
 bl.stop_virtual_cdj()
 bl.is_virtual_cdj_running()
 
-# Metadata services
+# メタデータサービス
 bl.start_metadata_finder()
 bl.stop_metadata_finder()
 bl.start_beat_grid_finder()
@@ -523,111 +523,111 @@ bl.stop_waveform_finder()
 bl.start_art_finder()
 bl.stop_art_finder()
 
-# Opus provider (offline mode)
+# Opus プロバイダー（オフラインモード）
 bl.start_opus_provider()
 bl.stop_opus_provider()
 ```
 
-### Data Retrieval
+### データ取得
 
 ```python
-# Get connected devices
+# 接続中のデバイスを取得
 devices = bl.get_devices()
 for d in devices:
     print(f"{d.device_name} #{d.device_number} @ {d.address}")
 
-# Get track metadata (player 1-4)
+# トラックメタデータを取得（プレイヤー 1-4）
 metadata = bl.get_track_metadata(1)
 if metadata:
-    print(f"Title: {metadata.title}")
-    print(f"Artist: {metadata.artist}")
+    print(f"タイトル: {metadata.title}")
+    print(f"アーティスト: {metadata.artist}")
     print(f"BPM: {metadata.tempo / 100:.2f}")
-    print(f"Key: {metadata.key}")
+    print(f"キー: {metadata.key}")
 
-# Get CDJ status
+# CDJ ステータスを取得
 status = bl.get_cdj_status(1)
 if status:
-    print(f"Playing: {status.is_playing}")
-    print(f"Master: {status.is_tempo_master}")
+    print(f"再生中: {status.is_playing}")
+    print(f"マスター: {status.is_tempo_master}")
     print(f"BPM: {status.effective_tempo:.2f}")
 
-# Get cue list
+# キューリストを取得
 cues = bl.get_cue_list(1)
 if cues:
     for entry in cues.entries:
-        print(f"Cue @ {entry.cue_time_ms}ms - {entry.color_name}")
+        print(f"キュー @ {entry.cue_time_ms}ms - {entry.color_name}")
 
-# Get beat grid
+# ビートグリッドを取得
 grid = bl.get_beat_grid(1)
 if grid:
-    print(f"Beat count: {grid.beat_count}")
+    print(f"ビート数: {grid.beat_count}")
     for beat in grid.beats[:10]:
-        print(f"Beat {beat.beat_number}: {beat.bpm/100:.2f} BPM @ {beat.time_ms}ms")
+        print(f"ビート {beat.beat_number}: {beat.bpm/100:.2f} BPM @ {beat.time_ms}ms")
 
-# Get waveform
+# 波形を取得
 preview = bl.get_waveform_preview(1)
 if preview:
-    print(f"Segments: {preview.segment_count}")
-    print(f"Color: {preview.is_color}")
+    print(f"セグメント数: {preview.segment_count}")
+    print(f"カラー: {preview.is_color}")
 
-# Get album art
+# アルバムアートを取得
 art = bl.get_album_art(1)
 if art:
-    print(f"Size: {art.width}x{art.height}")
-    # Save to file
+    print(f"サイズ: {art.width}x{art.height}")
+    # ファイルに保存
     with open('artwork.jpg', 'wb') as f:
         f.write(bytes(art.raw_bytes))
 ```
 
-### Event Listeners
+### イベントリスナー
 
 ```python
-# Beat listener
+# ビートリスナー
 def on_beat(beat):
-    print(f"Beat {beat.beat_in_bar}/4 @ {beat.effective_bpm:.2f} BPM")
+    print(f"ビート {beat.beat_in_bar}/4 @ {beat.effective_bpm:.2f} BPM")
 
 bl.add_beat_listener(on_beat)
 bl.remove_beat_listener(on_beat)
 bl.clear_beat_listeners()
 
-# Device listeners
+# デバイスリスナー
 def on_device_found(device):
-    print(f"Found: {device.device_name}")
+    print(f"発見: {device.device_name}")
 
 def on_device_lost(device):
-    print(f"Lost: {device.device_name}")
+    print(f"ロスト: {device.device_name}")
 
 bl.add_device_found_listener(on_device_found)
 bl.add_device_lost_listener(on_device_lost)
 bl.clear_device_found_listeners()
 bl.clear_device_lost_listeners()
 
-# Metadata listener
+# メタデータリスナー
 def on_metadata(update):
     if update.metadata:
-        print(f"Player {update.player}: {update.metadata.title}")
+        print(f"プレイヤー {update.player}: {update.metadata.title}")
 
 bl.add_track_metadata_listener(on_metadata)
 bl.clear_track_metadata_listeners()
 
-# Clear all listeners
+# すべてのリスナーをクリア
 bl.clear_all_listeners()
 ```
 
-### VirtualCdj Control
+### VirtualCdj 制御
 
 ```python
-# Get/set device number
+# デバイス番号の取得/設定
 num = bl.get_device_number()
 bl.set_device_number(5)
 
-# Tempo control
+# テンポ制御
 bl.set_tempo(128.0)
 bl.become_tempo_master()
 bl.send_sync_command(True)
 ```
 
-### Python Data Types
+### Python データ型
 
 ```python
 # PyBeat
@@ -651,7 +651,7 @@ metadata.album         # str
 metadata.genre         # str
 metadata.key           # str
 metadata.tempo         # int (BPM * 100)
-metadata.duration      # int (seconds)
+metadata.duration      # int (秒)
 metadata.rating        # int (0-5)
 metadata.year          # int
 
@@ -698,55 +698,55 @@ preview.data           # list[int]
 # PyAlbumArt
 art.width              # int
 art.height             # int
-art.format             # str ("jpeg" or "png")
+art.format             # str ("jpeg" または "png")
 art.raw_bytes          # list[int]
 ```
 
 ---
 
-## Protocol Reference
+## プロトコルリファレンス
 
-### Network Ports
+### ネットワークポート
 
-| Port | Protocol | Purpose |
-|------|----------|---------|
-| 50000 | UDP | Device announcement and discovery |
-| 50001 | UDP | Beat broadcast |
-| 50002 | UDP | Device status updates |
-| 12523 | TCP | DBServer metadata queries |
+| ポート | プロトコル | 用途 |
+|-------|----------|------|
+| 50000 | UDP | デバイスアナウンスと検出 |
+| 50001 | UDP | ビートブロードキャスト |
+| 50002 | UDP | デバイスステータス更新 |
+| 12523 | TCP | DBServer メタデータクエリ |
 
-### Packet Types
+### パケットタイプ
 
-| Offset | Size | Description |
-|--------|------|-------------|
-| 0x00 | 10 | Magic header "Qspt1WmJOL" |
-| 0x0a | 1 | Packet type |
-| 0x0b | 20 | Device name |
-| 0x21 | 1 | Device number |
+| オフセット | サイズ | 説明 |
+|----------|-------|------|
+| 0x00 | 10 | マジックヘッダー "Qspt1WmJOL" |
+| 0x0a | 1 | パケットタイプ |
+| 0x0b | 20 | デバイス名 |
+| 0x21 | 1 | デバイス番号 |
 
-### Pitch Values
+### ピッチ値
 
 ```cpp
-// Pitch encoding:
-// 0x000000 = stopped (0%)
-// 0x100000 = normal speed (100%)
-// 0x200000 = double speed (200%)
+// ピッチエンコーディング:
+// 0x000000 = 停止 (0%)
+// 0x100000 = 通常速度 (100%)
+// 0x200000 = 倍速 (200%)
 
 double percentage = (pitch - 0x100000) * 100.0 / 0x100000;
 double multiplier = pitch / static_cast<double>(0x100000);
 ```
 
-### References
+### 参考資料
 
-- [DJ Link Analysis](https://djl-analysis.deepsymmetry.org/) - Comprehensive protocol documentation
-- [Original Beat Link (Java)](https://github.com/Deep-Symmetry/beat-link)
-- [Crate Digger](https://github.com/Deep-Symmetry/crate-digger) - Database parsing
+- [DJ Link Analysis](https://djl-analysis.deepsymmetry.org/) - プロトコルの詳細ドキュメント
+- [オリジナル Beat Link (Java)](https://github.com/Deep-Symmetry/beat-link)
+- [Crate Digger](https://github.com/Deep-Symmetry/crate-digger) - データベースパース
 
 ---
 
-## Examples
+## サンプル
 
-### C++ - Full Metadata Retrieval
+### C++ - フルメタデータ取得
 
 ```cpp
 #include <beatlink/BeatLink.hpp>
@@ -756,7 +756,7 @@ double multiplier = pitch / static_cast<double>(0x100000);
 using namespace beatlink;
 
 int main() {
-    // Start all services
+    // すべてのサービスを開始
     DeviceFinder::getInstance().start();
     VirtualCdj::getInstance().start();
     data::MetadataFinder::getInstance().start();
@@ -764,22 +764,22 @@ int main() {
 
     std::this_thread::sleep_for(std::chrono::seconds(5));
 
-    // Get metadata for player 1
+    // プレイヤー 1 のメタデータを取得
     auto metadata = data::MetadataFinder::getInstance().getLatestMetadataFor(1);
     if (metadata) {
-        std::cout << "Title: " << metadata->getTitle() << "\n";
-        std::cout << "Artist: " << metadata->getArtist() << "\n";
+        std::cout << "タイトル: " << metadata->getTitle() << "\n";
+        std::cout << "アーティスト: " << metadata->getArtist() << "\n";
         std::cout << "BPM: " << metadata->getTempo() / 100.0 << "\n";
 
         auto cueList = metadata->getCueList();
         if (cueList) {
             for (const auto& cue : cueList->getEntries()) {
-                std::cout << "Cue @ " << cue.cueTimeMs << "ms\n";
+                std::cout << "キュー @ " << cue.cueTimeMs << "ms\n";
             }
         }
     }
 
-    // Cleanup
+    // クリーンアップ
     data::BeatGridFinder::getInstance().stop();
     data::MetadataFinder::getInstance().stop();
     VirtualCdj::getInstance().stop();
@@ -788,40 +788,40 @@ int main() {
 }
 ```
 
-### Python Scripts
+### Python スクリプト
 
-See the `examples/` directory:
+`examples/` ディレクトリを参照:
 
-| Script | Description |
-|--------|-------------|
-| `beat_monitor.py` | Real-time beat visualization |
-| `track_info.py` | Display track metadata, cue points, beat grid |
-| `waveform_export.py` | Export waveform and album art to files |
+| スクリプト | 説明 |
+|----------|------|
+| `beat_monitor.py` | リアルタイムビート可視化 |
+| `track_info.py` | トラックメタデータ、キューポイント、ビートグリッドの表示 |
+| `waveform_export.py` | 波形とアルバムアートのファイルエクスポート |
 
 ---
 
-## Testing
+## テスト
 
-### C++ Unit Tests
+### C++ ユニットテスト
 
 ```bash
 cmake .. -DBEATLINK_BUILD_TESTS=ON
 make beatlink_tests
-./beatlink_tests             # Run all tests
-./beatlink_tests [Beat]      # Run Beat tests only
-ctest --output-on-failure    # Run via CTest
+./beatlink_tests             # すべてのテストを実行
+./beatlink_tests [Beat]      # Beat テストのみ実行
+ctest --output-on-failure    # CTest 経由で実行
 ```
 
-### Python Tests
+### Python テスト
 
 ```bash
 cd tests
-python golden_test.py           # API and CLI tests
-python communication_test.py    # Network tests
-python real_device_test.py      # Device integration tests
+python golden_test.py           # API と CLI テスト
+python communication_test.py    # ネットワークテスト
+python real_device_test.py      # デバイス統合テスト
 ```
 
-### Generate Documentation
+### ドキュメント生成
 
 ```bash
 doxygen Doxyfile
@@ -830,82 +830,82 @@ open docs/api/html/index.html
 
 ---
 
-## Troubleshooting
+## トラブルシューティング
 
-### Port Already in Use
+### ポートが使用中
 
 ```
 Failed to start DeviceFinder (port 50000 may be in use)
 ```
 
-**Solution**: Close rekordbox or other DJ Link applications.
+**解決策**: rekordbox などの DJ Link アプリケーションを終了してください。
 
 ```bash
-# Check what's using the port
+# ポートを使用しているプロセスを確認
 lsof -i :50000
 ```
 
-### Devices Not Found
+### デバイスが見つからない
 
-1. Ensure PC and DJ equipment are on the same network subnet
-2. Check firewall settings (allow UDP 50000-50002, TCP 12523)
-3. Verify DJ Link is enabled on the equipment
+1. PC と DJ 機器が同じネットワークサブネット内にあることを確認
+2. ファイアウォール設定を確認（UDP 50000-50002、TCP 12523 を許可）
+3. 機器で DJ Link が有効になっていることを確認
 
-### macOS Network Permission
+### macOS ネットワーク権限
 
-On macOS, allow network access when prompted.
+macOS では、プロンプトが表示されたらネットワークアクセスを許可してください。
 
-### Build Errors
+### ビルドエラー
 
 ```bash
-# If Asio not found, install manually:
+# Asio が見つからない場合は手動でインストール:
 brew install asio          # macOS
 apt install libasio-dev    # Ubuntu/Debian
 ```
 
 ---
 
-## Supported Equipment
+## 対応機器
 
-### Tested
+### テスト済み
 
-- CDJ-2000NXS2, CDJ-3000
-- XDJ-1000MK2, XDJ-XZ, XDJ-RX3
-- DJM-900NXS2, DJM-V10
-- Opus Quad (partial support)
+- CDJ-2000NXS2、CDJ-3000
+- XDJ-1000MK2、XDJ-XZ、XDJ-RX3
+- DJM-900NXS2、DJM-V10
+- Opus Quad（部分対応）
 
-### Should Work
+### 動作するはず
 
-- All DJ Link compatible Pioneer DJ equipment
-- rekordbox (PC/Mac)
+- すべての DJ Link 対応 Pioneer DJ 機器
+- rekordbox（PC/Mac）
 
 ---
 
-## License
+## ライセンス
 
-This project is licensed under the **Eclipse Public License v2.0** (EPL-2.0), the same license as the original Java Beat Link library.
+本プロジェクトは、オリジナルの Java Beat Link ライブラリと同じ **Eclipse Public License v2.0**（EPL-2.0）の下でライセンスされています。
 
-**Original Java Implementation:**
+**オリジナル Java 実装:**
 Copyright (c) 2016-2024 [Deep Symmetry, LLC](https://deepsymmetry.org)
 
-**C++20 Port:**
-Copyright (c) 2024-2026 [Daito Manabe](https://daito.ws) / [Rhizomatiks](https://rhizomatiks.com)
+**C++20 移植版:**
+Copyright (c) 2024-2026 [真鍋大度](https://daito.ws) / [Rhizomatiks](https://rhizomatiks.com)
 
-See [LICENSE.md](LICENSE.md) for the full license text.
-
----
-
-## Acknowledgments
-
-- **James Elliott** and **Deep Symmetry** for the original [Beat Link](https://github.com/Deep-Symmetry/beat-link) library
-- The [DJ Link Analysis](https://djl-analysis.deepsymmetry.org/) documentation
-- The reverse engineering community
+ライセンス全文は [LICENSE.md](LICENSE.md) をご覧ください。
 
 ---
 
-## Version History
+## 謝辞
 
-| Version | Date | Changes |
-|---------|------|---------|
-| 0.2.0 | 2026-01 | Python bindings (105 API), unit tests, documentation |
-| 0.1.0 | 2024-12 | Initial release: DeviceFinder, BeatFinder, GUI monitor |
+- **James Elliott** と **Deep Symmetry** - オリジナルの [Beat Link](https://github.com/Deep-Symmetry/beat-link) ライブラリ
+- [DJ Link Analysis](https://djl-analysis.deepsymmetry.org/) ドキュメント
+- リバースエンジニアリングコミュニティ
+
+---
+
+## バージョン履歴
+
+| バージョン | 日付 | 変更内容 |
+|----------|------|---------|
+| 0.2.0 | 2026-01 | Python バインディング（105 API）、ユニットテスト、ドキュメント |
+| 0.1.0 | 2024-12 | 初回リリース: DeviceFinder、BeatFinder、GUI モニター |
