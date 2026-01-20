@@ -2,8 +2,6 @@
 
 #include <algorithm>
 #include <cctype>
-#include <codecvt>
-#include <locale>
 #include <stdexcept>
 
 namespace beatlink::data {
@@ -265,15 +263,51 @@ std::string CueList::decodeUtf16Le(std::span<const uint8_t> bytes) {
     if (bytes.size() % 2 != 0) {
         throw std::runtime_error("Invalid UTF-16LE string length");
     }
-    std::u16string utf16;
-    utf16.resize(bytes.size() / 2);
-    for (size_t i = 0; i < utf16.size(); ++i) {
-        const uint16_t value = static_cast<uint16_t>(bytes[i * 2]) |
-                               static_cast<uint16_t>(bytes[i * 2 + 1] << 8);
-        utf16[i] = static_cast<char16_t>(value);
+
+    std::string result;
+    result.reserve(bytes.size());  // Rough estimate
+
+    for (size_t i = 0; i < bytes.size(); i += 2) {
+        // Read UTF-16 LE code unit
+        uint32_t codeUnit = static_cast<uint32_t>(bytes[i]) |
+                            (static_cast<uint32_t>(bytes[i + 1]) << 8);
+
+        // Handle surrogate pairs
+        if (codeUnit >= 0xD800 && codeUnit <= 0xDBFF && i + 2 < bytes.size()) {
+            uint32_t highSurrogate = codeUnit;
+            uint32_t lowSurrogate = static_cast<uint32_t>(bytes[i + 2]) |
+                                    (static_cast<uint32_t>(bytes[i + 3]) << 8);
+            if (lowSurrogate >= 0xDC00 && lowSurrogate <= 0xDFFF) {
+                // Valid surrogate pair - decode to code point
+                uint32_t codePoint = 0x10000 + ((highSurrogate - 0xD800) << 10) + (lowSurrogate - 0xDC00);
+                i += 2;  // Skip low surrogate
+
+                // Encode as UTF-8 (4 bytes)
+                result.push_back(static_cast<char>(0xF0 | ((codePoint >> 18) & 0x07)));
+                result.push_back(static_cast<char>(0x80 | ((codePoint >> 12) & 0x3F)));
+                result.push_back(static_cast<char>(0x80 | ((codePoint >> 6) & 0x3F)));
+                result.push_back(static_cast<char>(0x80 | (codePoint & 0x3F)));
+                continue;
+            }
+        }
+
+        // Not a surrogate or invalid surrogate - treat as BMP character
+        if (codeUnit < 0x80) {
+            // ASCII (1 byte)
+            result.push_back(static_cast<char>(codeUnit));
+        } else if (codeUnit < 0x800) {
+            // 2-byte UTF-8
+            result.push_back(static_cast<char>(0xC0 | ((codeUnit >> 6) & 0x1F)));
+            result.push_back(static_cast<char>(0x80 | (codeUnit & 0x3F)));
+        } else {
+            // 3-byte UTF-8
+            result.push_back(static_cast<char>(0xE0 | ((codeUnit >> 12) & 0x0F)));
+            result.push_back(static_cast<char>(0x80 | ((codeUnit >> 6) & 0x3F)));
+            result.push_back(static_cast<char>(0x80 | (codeUnit & 0x3F)));
+        }
     }
-    std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t> converter;
-    return converter.to_bytes(utf16);
+
+    return result;
 }
 
 std::string CueList::trimString(const std::string& value) {

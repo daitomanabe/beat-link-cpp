@@ -64,6 +64,17 @@ FetchContent_Declare(
 set(UTF8PROC_INSTALL OFF CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(utf8proc)
 
+# stb_image - Image loading (header-only)
+FetchContent_Declare(
+    stb
+    GIT_REPOSITORY https://github.com/nothings/stb.git
+    GIT_TAG        master
+)
+FetchContent_MakeAvailable(stb)
+# Create interface library for stb_image
+add_library(stb_image INTERFACE)
+target_include_directories(stb_image INTERFACE ${stb_SOURCE_DIR})
+
 # SQLCipher (optional)
 if(BEATLINK_USE_SQLCIPHER)
     find_package(PkgConfig REQUIRED)
@@ -168,6 +179,7 @@ set(BEATLINK_SOURCES
     src/data/SqliteConnection.cpp
     src/data/AnlzParser.cpp
     src/data/PdbParser.cpp
+    src/data/AlbumArt.cpp
     src/dbserver/DataReader.cpp
     src/dbserver/Field.cpp
     src/dbserver/NumberField.cpp
@@ -200,6 +212,7 @@ target_link_libraries(beatlink PUBLIC
     sqlite3
     kaitai_struct_cpp_stl_runtime
     utf8proc
+    stb_image
 )
 
 # SQLCipher linking (optional)

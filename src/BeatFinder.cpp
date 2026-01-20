@@ -108,15 +108,11 @@ void BeatFinder::processPacket(const uint8_t* data, size_t length, const asio::i
 
     switch (*type) {
         case PacketType::BEAT: {
-            if (length < Beat::PACKET_SIZE) {
-                std::cerr << "BeatFinder: Ignoring too-short beat packet" << std::endl;
-                return;
-            }
-            try {
-                Beat beat(data, Beat::PACKET_SIZE, sender);
-                deliverBeat(beat);
-            } catch (const std::exception& e) {
-                std::cerr << "BeatFinder: Error processing beat: " << e.what() << std::endl;
+            auto beat = Beat::create(std::span<const uint8_t>(data, length), sender);
+            if (beat) {
+                deliverBeat(*beat);
+            } else {
+                std::cerr << "BeatFinder: Failed to parse beat packet" << std::endl;
             }
             break;
         }

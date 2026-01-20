@@ -1371,16 +1371,20 @@ std::shared_ptr<DeviceUpdate> VirtualCdj::buildUpdate(const uint8_t* data,
     }
 
     switch (*type) {
-        case PacketType::MIXER_STATUS:
-            if (length < MixerStatus::PACKET_SIZE) {
-                return nullptr;
+        case PacketType::MIXER_STATUS: {
+            auto status = MixerStatus::create(std::span<const uint8_t>(data, length), sender);
+            if (status) {
+                return std::make_shared<MixerStatus>(std::move(*status));
             }
-            return std::make_shared<MixerStatus>(data, MixerStatus::PACKET_SIZE, sender);
-        case PacketType::CDJ_STATUS:
-            if (length < CdjStatus::MIN_PACKET_SIZE) {
-                return nullptr;
+            return nullptr;
+        }
+        case PacketType::CDJ_STATUS: {
+            auto status = CdjStatus::create(std::span<const uint8_t>(data, length), sender);
+            if (status) {
+                return std::make_shared<CdjStatus>(std::move(*status));
             }
-            return std::make_shared<CdjStatus>(data, length, sender);
+            return nullptr;
+        }
         default:
             return nullptr;
     }

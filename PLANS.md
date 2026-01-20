@@ -1,4 +1,4 @@
-# Beat Link C++ - 実装計画 v2.0
+# Beat Link C++ - 実装計画 v3.0
 
 ## 概要
 
@@ -7,235 +7,272 @@ Pioneer DJ Link プロトコルを実装し、CDJ/XDJ/DJM 機器との通信を�
 
 ---
 
-## 現状分析
+## 移植状況サマリー
 
-### 動作確認済み機能
-| 機能 | ファイル | 状態 |
-|------|---------|------|
-| DeviceFinder (port 50000) | DeviceFinder.cpp (310行) | ✅ 動作 |
-| BeatFinder (port 50001) | BeatFinder.cpp (153行) | ✅ 動作 |
-| Beat パケットパース | Beat.hpp | ✅ 動作 |
-| CdjStatus パケットパース | CdjStatus.hpp | ⚠️ パース可能だが受信機構なし |
-| CLI ツール | beatlink_cli.cpp | ✅ 動作 |
-| API Schema | ApiSchema.hpp | ✅ 動作 |
-| Safety Curtain | SafetyCurtain.hpp | ✅ 動作 |
-| Handle Pool | HandlePool.hpp | ✅ 実装済み |
+### Java版クラス数: 85ファイル
+### C++移植状況: **約90%完了**
 
-### 未実装・スタブのみ
-| 機能 | 状態 | 優先度 |
-|------|------|--------|
-| VirtualCdj (port 50002) | 7行スタブ | **高** |
-| MetadataFinder | 未実装 | 中 |
-| TimeFinder | 未実装 | 中 |
-| BeatGridFinder | 未実装 | 中 |
-| WaveformFinder | 未実装 | 低 |
-| ArtFinder | 未実装 | 低 |
-| OpusProvider | ヘッダーのみ | 中 |
-
-### 技術的課題
-| 課題 | 深刻度 | 対応 |
-|------|--------|------|
-| 一部バッファ境界チェック不足 | 中 | 残存箇所の修正 |
-| 例外がリアルタイムパスに存在 | 高 | std::optional 化 |
-| デバイス期限切れ処理不完全 | 中 | expireDevices 実装 |
-| Python bindings 不完全 | 低 | 段階的拡充 |
-
-### 完了済み
-| 項目 | 状態 |
-|------|------|
-| C++20 移行 | ✅ `CMAKE_CXX_STANDARD 20` |
-| std::span 導入 | ✅ 主要箇所で使用中 |
-| std::format 導入 | ✅ sprintf 置換済み |
+| カテゴリ | Java | C++ | 状態 |
+|---------|------|-----|------|
+| Core (beatlink/) | 30 | 30 | ✅ 完了 |
+| Data (data/) | 40 | 38 | ✅ 実装済み (UIスキップ) |
+| DBServer (dbserver/) | 7 | 7 | ✅ 完了 |
+| Python Bindings | - | 1 | ✅ 完了 (105 API) |
+| Tests | 多数 | 少数 | ❌ 要拡充 |
 
 ---
 
-## 実装フェーズ
+## 実装完了コンポーネント
 
-### Phase 0: 残存課題の修正 ✅ 完了
+### Core (beatlink/)
 
-**目標**: リアルタイム安全性の完成
+| コンポーネント | ファイル | 行数 | 状態 |
+|---------------|---------|------|------|
+| DeviceFinder | DeviceFinder.cpp | 399 | ✅ |
+| BeatFinder | BeatFinder.cpp | 459 | ✅ |
+| VirtualCdj | VirtualCdj.cpp | 1736 | ✅ |
+| VirtualRekordbox | VirtualRekordbox.cpp | 712 | ✅ |
+| Beat | Beat.cpp | 35 | ✅ |
+| CdjStatus | CdjStatus.cpp | 6 (ヘッダ主体) | ✅ |
+| MixerStatus | MixerStatus.cpp | 6 (ヘッダ主体) | ✅ |
+| DeviceAnnouncement | DeviceAnnouncement.cpp | 6 (ヘッダ主体) | ✅ |
+| DeviceUpdate | DeviceUpdate.cpp | 6 (ヘッダ主体) | ✅ |
+| MediaDetails | MediaDetails.cpp | 238 | ✅ |
+| Metronome | Metronome.cpp | 97 | ✅ |
+| PrecisePosition | PrecisePosition.cpp | 59 | ✅ |
+| Util | Util.cpp | 6 (ヘッダ主体) | ✅ |
 
-> **Note**: C++20移行、std::span/std::format導入は完了済み
+### Data Finders (data/)
 
-#### 0.1 例外除去 (Critical) ✅ 完了
-- [x] DeviceAnnouncement::create() ファクトリ関数追加
-- [x] DeviceUpdate 保護noexceptコンストラクタ追加
-- [x] Beat::create() ファクトリ関数追加
-- [x] CdjStatus::create() ファクトリ関数追加
-- [x] MixerStatus::create() ファクトリ関数追加
-- [ ] 旧コンストラクタ呼び出し箇所を新APIに移行（段階的）
+| コンポーネント | ファイル | 行数 | 状態 |
+|---------------|---------|------|------|
+| MetadataFinder | MetadataFinder.cpp | 937 | ✅ |
+| TimeFinder | TimeFinder.cpp | 607 | ✅ |
+| WaveformFinder | WaveformFinder.cpp | 813 | ✅ |
+| BeatGridFinder | BeatGridFinder.cpp | 394 | ✅ |
+| ArtFinder | ArtFinder.cpp | 489 | ✅ |
+| AnalysisTagFinder | AnalysisTagFinder.cpp | 541 | ✅ |
+| SignatureFinder | SignatureFinder.cpp | 496 | ✅ |
+| OpusProvider | OpusProvider.cpp | 482 | ✅ |
+| CrateDigger | CrateDigger.cpp | 367 | ✅ |
+| MenuLoader | MenuLoader.cpp | 692 | ✅ |
 
-```cpp
-// 使用例
-if (auto beat = Beat::create(data, senderAddress)) {
-    processBeat(*beat);
-} else {
-    // パケットサイズ不正 - 例外なしで処理
-}
+### Data Types (data/)
+
+| コンポーネント | 状態 | 備考 |
+|---------------|------|------|
+| TrackMetadata | ✅ | Builder パターン実装済み |
+| WaveformPreview | ✅ | ANLZ コンストラクタ追加済み |
+| WaveformDetail | ✅ | ANLZ コンストラクタ追加済み |
+| BeatGrid | ✅ | ANLZ対応済み |
+| CueList | ✅ | Entry デフォルトコンストラクタ追加済み |
+| AlbumArt | ✅ | stb_image で JPEG/PNG デコード実装済み |
+| DataReference | ✅ | デフォルトコンストラクタ追加済み |
+| SlotReference | ✅ | |
+| DeckReference | ✅ | |
+| SearchableItem | ✅ | |
+| ColorItem | ✅ | |
+
+### DBServer (dbserver/)
+
+| コンポーネント | ファイル | 行数 | 状態 |
+|---------------|---------|------|------|
+| Client | Client.cpp | 280 | ✅ |
+| ConnectionManager | ConnectionManager.cpp | 322 | ✅ |
+| Message | Message.cpp | 465 | ✅ |
+| Field | Field.cpp | 48 | ✅ |
+| NumberField | NumberField.cpp | 74 | ✅ |
+| StringField | StringField.cpp | 77 | ✅ |
+| BinaryField | BinaryField.cpp | 47 | ✅ |
+| DataReader | DataReader.cpp | 79 | ✅ |
+
+### Parsers (generated/ & data/)
+
+| コンポーネント | ファイル | 行数 | 状態 |
+|---------------|---------|------|------|
+| rekordbox_anlz | rekordbox_anlz.cpp | 557 | ✅ Kaitai生成 |
+| rekordbox_pdb | rekordbox_pdb.cpp | 462 | ✅ Kaitai生成 |
+| AnlzParser | AnlzParser.cpp | 353 | ✅ |
+| PdbParser | PdbParser.cpp | 368 | ✅ |
+| ZipArchive | ZipArchive.cpp | 215 | ✅ |
+| SqliteConnection | SqliteConnection.cpp | 431 | ✅ |
+
+### Listeners (include/beatlink/)
+
+すべてのリスナーインターフェースがヘッダーファイルとして実装済み:
+
+- BeatListener, DeviceAnnouncementListener, DeviceUpdateListener
+- MasterListener, SyncListener, FaderStartListener, OnAirListener
+- MasterHandoffListener, MediaDetailsListener, LifecycleListener
+- PrecisePositionListener
+- TrackMetadataListener, BeatGridListener, WaveformListener
+- AlbumArtListener, AnalysisTagListener, SignatureListener
+- TrackPositionListener, TrackPositionBeatListener
+- MountListener, DatabaseListener, SQLiteConnectionListener
+
+---
+
+## 移植スキップ (Java UI コンポーネント)
+
+以下はJava Swing固有のUIコンポーネントのため、C++への移植対象外:
+
+| コンポーネント | 理由 |
+|---------------|------|
+| WaveformDetailComponent | Java Swing UI |
+| WaveformPreviewComponent | Java Swing UI |
+| OverlayPainter | Java Swing UI |
+| RepaintDelegate | Java Swing UI |
+
+※ C++側では beatlink_gui.cpp で ImGui ベースのGUIを独自実装済み
+
+---
+
+## 残作業フェーズ
+
+### Phase 4: 品質向上 ✅ 完了
+
+#### 4.1 アルバムアート画像パース
+- [x] JPEG パーサー実装 (stb_image 使用)
+- [x] PNG パーサー実装
+- [x] AlbumArt::decode() / getDecodedPixels() / getDimensions() 実装
+
+#### 4.2 C++20 警告対処
+- [x] `codecvt` deprecated 警告の解消
+  - 手動UTF-16 BE/LE → UTF-8変換実装 (StringField.cpp, CueList.cpp)
+- [x] その他の deprecated 警告対処
+
+#### 4.3 旧コンストラクタ移行
+- [x] Beat コンストラクタ → `Beat::create()` 使用箇所移行
+- [x] CdjStatus コンストラクタ → `CdjStatus::create()` 使用箇所移行
+- [x] MixerStatus コンストラクタ → `MixerStatus::create()` 使用箇所移行
+- [x] DeviceAnnouncement コンストラクタ → `DeviceAnnouncement::create()` 使用箇所移行
+
+---
+
+### Phase 5: Python Bindings 完成 ✅ 完了
+
+#### 5.1 実装済み機能 (1300行以上)
+```python
+# 使用可能な機能
+import beatlink_py as bl
+bl.start_device_finder()
+bl.start_beat_finder()
+bl.start_virtual_cdj()
+bl.start_metadata_finder()
+bl.add_beat_listener(callback)
+bl.get_track_metadata(player)
+bl.get_waveform_preview(player)
+bl.get_album_art(player)
+bl.get_beat_grid(player)
+bl.get_cue_list(player)
+# 合計105個のAPI
 ```
 
----
+#### 5.2 実装完了
+- [x] clear_*_listeners() メソッド群 (リスナー削除)
+- [x] VirtualCdj 制御メソッド (set_tempo, become_master, etc.)
+- [x] WaveformPreview/WaveformDetail データ取得
+- [x] AlbumArt 取得
+- [x] CueList 取得
+- [x] BeatGrid 取得
+- [x] OpusProvider バインディング
 
-### Phase 1: VirtualCdj 実装 ✅ 実装済み
-
-**状態**: VirtualCdj.cpp は1736行で完全実装済み。Port 50002受信も含む。
-
-~~#### 1.1 StatusFinder 新規作成~~ 不要
-VirtualCdjがPort 50002のステータス受信を既に実装している。
-
-#### 1.1 VirtualCdj 使用例
-```cpp
-auto& vcdj = VirtualCdj::getInstance();
-vcdj.start();
-
-vcdj.addUpdateListener(listener);  // CdjStatus/MixerStatus受信
+#### 5.3 追加バインディング完了
+```python
+# 実装済み
+bl.get_waveform_preview(player)  # → WaveformPreview
+bl.get_waveform_detail(player)   # → WaveformDetail
+bl.get_album_art(player)         # → AlbumArt (raw bytes)
+bl.get_cue_list(player)          # → CueList
+bl.get_beat_grid(player)         # → BeatGrid
+bl.clear_beat_listeners()        # リスナー削除
 ```
 
----
-
-### Phase 1.5: data/ ディレクトリのバグ修正 ✅ 完了
-
-**状態**: ビルド通過確認済み
-
-#### 修正済みバグ
-- [x] `AnlzParser.hpp`: WaveformStyle → AnalysisFileFormat に名前変更（重複定義解消）
-- [x] `AnlzTypes.hpp`: CueEntry, BeatGridEntry 型を新規作成
-- [x] `BeatGrid.hpp`: ANLZ用デフォルトコンストラクタ追加
-- [x] `CueList.hpp`: Entry のデフォルトコンストラクタ追加、ANLZ用コンストラクタ追加
-- [x] `WaveformPreview.hpp`: ANLZ用コンストラクタ追加
-- [x] `WaveformDetail.hpp`: ANLZ用コンストラクタ追加
-- [x] `DataReference.hpp`: デフォルトコンストラクタ追加
-- [x] `SQLiteConnection.hpp`: クラス名修正、path コンストラクタ追加
-- [x] `PdbParser.cpp`: toTrackMetadata() スタブ化（要完全実装）
+#### 5.4 ドキュメント
+- [ ] Python API ドキュメント (Sphinx)
+- [x] 使用例スクリプト追加 (examples/)
+  - beat_monitor.py: ビートモニター
+  - track_info.py: トラック情報表示
+  - waveform_export.py: 波形/アート出力
+- [ ] README.md 更新
 
 ---
 
-### Phase 2: デバイス管理強化 ✅ 実装済み
+### Phase 6: テスト整備
 
-#### 2.1 デバイス期限切れ処理 ✅ 完了
-- [ ] 既存スタブを実装
-- [ ] デバイスとしてネットワーク参加
-- [ ] Keep-alive パケット送信
-- [ ] テンポマスター追跡
+#### 6.1 ユニットテスト
+- [ ] Google Test または Catch2 導入
+- [ ] パケットパーステスト
+  - Beat パケット
+  - CdjStatus パケット
+  - MixerStatus パケット
+  - DeviceAnnouncement パケット
+- [ ] データ構造テスト
+  - BeatGrid
+  - CueList
+  - WaveformPreview/Detail
+  - TrackMetadata
+
+#### 6.2 ファズテスト
+- [ ] libFuzzer または AFL++ 導入
+- [ ] パケットパーサーのファズテスト
+- [ ] ANLZ/PDB パーサーのファズテスト
+
+#### 6.3 統合テスト
+- [ ] Python golden_test.py 拡充
+- [ ] emulator.py 連携テスト
+- [ ] 実機テスト手順書作成
+
+#### 6.4 テストデータ
+- [ ] テスト用パケットキャプチャ収集
+- [ ] 各種rekordboxバージョンのANLZファイル
+- [ ] 各種PDBファイルサンプル
 
 ---
 
-### Phase 2: デバイス管理強化
+### Phase 7: CI/CD 構築
 
-**目標**: 堅牢なデバイス追跡
-
-#### 2.1 デバイス期限切れ処理
-- [ ] `DeviceFinder::expireDevices()` 実装
-- [ ] タイマースレッドまたは tick() 方式
-- [ ] MAXIMUM_AGE (10秒) 経過でデバイス削除
-- [ ] DeviceLost コールバック発火
-
-#### 2.2 デバイスプール管理
-- [ ] HandlePool を DeviceFinder に統合
-- [ ] デバイス参照の安全な取得
-```cpp
-// Handle ベースのアクセス
-auto handle = deviceFinder.getDeviceHandle(deviceNumber);
-if (auto* device = deviceFinder.getDevice(handle)) {
-    // safe access
-}
+#### 7.1 GitHub Actions
+```yaml
+# .github/workflows/build.yml
+- macOS (arm64, x86_64)
+- Linux (Ubuntu 22.04+)
+- Windows (MSVC 2022)
 ```
 
-#### 2.3 マスターテンポ追跡
-- [ ] 現在のテンポマスター追跡
-- [ ] マスター変更イベント通知
-- [ ] BPM 履歴保持
+#### 7.2 自動テスト
+- [ ] ビルド検証
+- [ ] ユニットテスト実行
+- [ ] Python バインディングテスト
+- [ ] コード品質チェック (clang-tidy)
+
+#### 7.3 リリース自動化
+- [ ] タグプッシュでリリース作成
+- [ ] プラットフォーム別バイナリ
+- [ ] Python wheel 生成
 
 ---
 
-### Phase 3: OpusProvider 実装 ✅ 完了
+### Phase 8: ドキュメント整備
 
-**目標**: Opus Quad / XDJ-AZ メタデータ取得
-
-#### 3.1 依存ライブラリ追加 ✅ 完了
-- [x] CMakeLists.txt 更新:
-  - miniz (ZIPアーカイブ)
-  - sqlite3 amalgamation
-  - kaitai_runtime
-  - utf8proc
-
-#### 3.2 基盤クラス ✅ 完了
-- [x] `ZipArchive.hpp/cpp` - miniz ラッパー
-- [x] `SqliteConnection.hpp/cpp` - sqlite3 ラッパー
-- [x] `AnlzParser.hpp/cpp` - Kaitai ラッパー
-- [x] `PdbParser.hpp/cpp` - rekordbox PDBパーサー
-
-#### 3.3 Kaitai パーサー生成 ✅ 完了
-- [x] `rekordbox_anlz.h/cpp` - ANLZ解析ファイルパーサー
-- [x] `rekordbox_pdb.h/cpp` - PDBデータベースパーサー
-
-#### 3.4 OpusProvider API ✅ 完了
-- [x] `attachMetadataArchive()` / `detachMetadataArchive()`
-- [x] `getTrackMetadata()` - PdbParser + TrackMetadata::Builder使用
-- [x] `getBeatGrid()` - AnlzParser使用
-- [x] `getWaveformPreview()` / `getWaveformDetail()` - AnlzParser使用
-- [x] `getAlbumArt()` - パス取得まで実装（画像パース未実装）
-- [x] PSSI マッチング基盤（SHA-1ハッシュ）
-
----
-
-### Phase 4: メタデータ取得拡張
-
-#### 4.1 MetadataFinder
-- [ ] トラックメタデータ要求/受信
-- [ ] キャッシュ機構
-- [ ] リスナーパターン
-
-#### 4.2 TimeFinder
-- [ ] 現在再生位置追跡
-- [ ] 予測補間アルゴリズム
-
-#### 4.3 BeatGridFinder
-- [ ] ビートグリッドデータ取得
-- [ ] BeatGrid データ構造
-
----
-
-### Phase 5: Python Bindings 完成
-
-#### 5.1 Core バインディング
-- [ ] DeviceFinder 完全バインド
-- [ ] BeatFinder 完全バインド
-- [ ] StatusFinder バインド
-- [ ] Beat, CdjStatus データ構造
-
-#### 5.2 コールバック安全性
-- [ ] GIL 管理の徹底
-- [ ] 例外ハンドリング (Python→C++→Python)
-- [ ] スレッドセーフティ
-
-#### 5.3 テスト充実
-- [ ] golden_test.py 拡充
-- [ ] 統合テスト追加
-- [ ] emulator との結合テスト
-
----
-
-### Phase 6: 品質向上
-
-#### 6.1 テスト
-- [ ] ユニットテスト追加 (Google Test or Catch2)
-- [ ] パケットパースのファズテスト
-- [ ] 実機テスト手順整備
-
-#### 6.2 ドキュメント
+#### 8.1 API ドキュメント
 - [ ] Doxygen コメント追加
-- [ ] API ドキュメント生成
-- [ ] 使用例の充実
+- [ ] API リファレンス生成
+- [ ] アーキテクチャ図
 
-#### 6.3 CI/CD
-- [ ] GitHub Actions 設定
-- [ ] マルチプラットフォームビルド確認
-- [ ] 自動テスト実行
+#### 8.2 ユーザーガイド
+- [ ] クイックスタートガイド
+- [ ] 設定オプション説明
+- [ ] トラブルシューティング
+
+#### 8.3 開発者ガイド
+- [ ] 貢献ガイドライン
+- [ ] コーディング規約
+- [ ] ビルド手順
 
 ---
 
-## ディレクトリ構成 (目標)
+## ディレクトリ構成 (現状)
 
 ```
 beat-link-cpp/
@@ -244,50 +281,99 @@ beat-link-cpp/
 ├── INSTRUCTION.md
 ├── PLANS.md
 ├── include/beatlink/
-│   ├── BeatLink.hpp          # メインヘッダー
+│   ├── BeatLink.hpp          # メインヘッダー (全インクルード)
 │   ├── PacketTypes.hpp       # プロトコル定数
-│   ├── Util.hpp              # ユーティリティ (std::span版)
+│   ├── Util.hpp              # ユーティリティ
 │   ├── SafetyCurtain.hpp     # 出力リミッター
 │   ├── HandlePool.hpp        # ハンドル管理
 │   ├── ApiSchema.hpp         # API イントロスペクション
-│   ├── DeviceReference.hpp   # デバイス識別キー
+│   │
+│   ├── DeviceReference.hpp
 │   ├── DeviceAnnouncement.hpp
-│   ├── DeviceUpdate.hpp      # 基底クラス
+│   ├── DeviceUpdate.hpp
 │   ├── Beat.hpp
 │   ├── CdjStatus.hpp
 │   ├── MixerStatus.hpp
+│   ├── MediaDetails.hpp
+│   ├── PlayerSettings.hpp
+│   ├── Metronome.hpp
+│   ├── PrecisePosition.hpp
+│   ├── Snapshot.hpp
+│   │
 │   ├── DeviceFinder.hpp
 │   ├── BeatFinder.hpp
-│   ├── StatusFinder.hpp      # 新規
-│   ├── VirtualCdj.hpp        # 拡張
-│   └── data/
-│       ├── OpusProvider.hpp
-│       ├── ZipArchive.hpp    # 新規
-│       ├── SqliteConnection.hpp # 新規
-│       └── AnlzParser.hpp    # 新規
-├── src/
-│   ├── Util.cpp
-│   ├── DeviceFinder.cpp
-│   ├── BeatFinder.cpp
-│   ├── StatusFinder.cpp      # 新規
-│   ├── VirtualCdj.cpp        # 実装
+│   ├── VirtualCdj.hpp
+│   ├── VirtualRekordbox.hpp
+│   │
+│   ├── *Listener.hpp         # 各種リスナーインターフェース
+│   │
 │   ├── data/
-│   │   ├── OpusProvider.cpp
-│   │   ├── ZipArchive.cpp
-│   │   └── SqliteConnection.cpp
-│   ├── generated/            # Kaitai 生成
-│   │   ├── rekordbox_anlz.h
-│   │   └── rekordbox_anlz.cpp
+│   │   ├── DataReference.hpp
+│   │   ├── SlotReference.hpp
+│   │   ├── DeckReference.hpp
+│   │   ├── TrackMetadata.hpp
+│   │   ├── BeatGrid.hpp
+│   │   ├── CueList.hpp
+│   │   ├── WaveformPreview.hpp
+│   │   ├── WaveformDetail.hpp
+│   │   ├── AlbumArt.hpp
+│   │   ├── AnalysisTag.hpp
+│   │   ├── SearchableItem.hpp
+│   │   ├── ColorItem.hpp
+│   │   ├── PlaybackState.hpp
+│   │   │
+│   │   ├── MetadataFinder.hpp
+│   │   ├── TimeFinder.hpp
+│   │   ├── WaveformFinder.hpp
+│   │   ├── BeatGridFinder.hpp
+│   │   ├── ArtFinder.hpp
+│   │   ├── AnalysisTagFinder.hpp
+│   │   ├── SignatureFinder.hpp
+│   │   │
+│   │   ├── OpusProvider.hpp
+│   │   ├── CrateDigger.hpp
+│   │   ├── MenuLoader.hpp
+│   │   ├── Database.hpp
+│   │   │
+│   │   ├── MetadataProvider.hpp
+│   │   ├── AnlzParser.hpp
+│   │   ├── AnlzTypes.hpp
+│   │   ├── PdbParser.hpp
+│   │   ├── ZipArchive.hpp
+│   │   ├── SqliteConnection.hpp
+│   │   │
+│   │   └── *Listener.hpp, *Update.hpp
+│   │
+│   └── dbserver/
+│       ├── Client.hpp
+│       ├── ConnectionManager.hpp
+│       ├── Message.hpp
+│       ├── Field.hpp
+│       ├── NumberField.hpp
+│       ├── StringField.hpp
+│       ├── BinaryField.hpp
+│       └── DataReader.hpp
+│
+├── src/
+│   ├── *.cpp                 # Core 実装
+│   ├── data/*.cpp            # Data 実装
+│   ├── dbserver/*.cpp        # DBServer 実装
+│   ├── generated/            # Kaitai 生成コード
+│   │   ├── rekordbox_anlz.h/cpp
+│   │   └── rekordbox_pdb.h/cpp
 │   └── python_bindings.cpp
+│
 ├── examples/
 │   ├── simple_beat_listener.cpp
 │   ├── beatlink_cli.cpp
 │   └── beatlink_gui.cpp
+│
 ├── tests/
 │   ├── golden_test.py
 │   ├── communication_test.py
 │   ├── real_device_test.py
 │   └── emulator.py
+│
 └── external/
     ├── beat-link/            # Java リファレンス
     └── crate-digger-cpp/     # .ksy 定義
@@ -299,23 +385,50 @@ beat-link-cpp/
 
 | 優先度 | Phase | 内容 | 状態 |
 |--------|-------|------|------|
-| ✅ | 0 | 安全性強化 | 完了 |
-| ✅ | 1 | VirtualCdj | 実装済み |
+| ✅ | 0 | 安全性強化 (例外除去) | 完了 |
+| ✅ | 1 | VirtualCdj | 完了 |
 | ✅ | 1.5 | data/バグ修正 | 完了 |
-| ✅ | 2 | デバイス管理 | 実装済み |
+| ✅ | 2 | デバイス管理強化 | 完了 |
 | ✅ | 3 | OpusProvider | 完了 |
-| 🟢 中 | 4 | メタデータ取得拡張 | 次フェーズ |
-| 🔵 低 | 5-6 | Python Bindings, 品質向上 | 将来 |
+| ✅ | 4 | 品質向上 | 完了 |
+| ✅ | 5 | Python Bindings 完成 | 完了 (105 API) |
+| 🟢 | 6 | テスト整備 | 次フェーズ |
+| 🔵 | 7 | CI/CD | 将来 |
+| 🔵 | 8 | ドキュメント | 将来 |
 
 ---
 
-## 次のステップ
+## 技術仕様
 
-1. **Phase 4**: MetadataFinder / TimeFinder / BeatGridFinder の実装
-2. **AlbumArt**: 画像パース実装（JPEG/PNG対応）
-3. **段階的移行**: 旧コンストラクタ呼び出しを新create()関数に移行
-4. **警告対処**: codecvt deprecated 警告を C++20 代替実装に置換
-5. **テスト**: 実機テスト・ユニットテスト整備
+### 依存ライブラリ
+
+| ライブラリ | 用途 | バージョン |
+|-----------|------|----------|
+| asio | ネットワーク | standalone (non-Boost) |
+| nanobind | Python バインディング | 最新 |
+| miniz | ZIP 展開 | master |
+| sqlite3 | DB アクセス | 3.45.0 |
+| kaitai_struct | バイナリパース | 最新 |
+| utf8proc | UTF-8 処理 | 最新 |
+| imgui + glfw | GUI (オプション) | 最新 |
+
+### ビルド要件
+
+- CMake 3.15+
+- C++20 対応コンパイラ
+  - GCC 11+
+  - Clang 14+
+  - MSVC 2022+
+- Python 3.8+ (バインディングビルド時)
+
+### プロトコルポート
+
+| ポート | 用途 |
+|--------|------|
+| 50000 | Device Announcement (UDP) |
+| 50001 | Beat Broadcast (UDP) |
+| 50002 | Device Status (UDP) |
+| 12523 | DBServer Query (TCP) |
 
 ---
 
@@ -325,3 +438,14 @@ beat-link-cpp/
 - DJ Link 解析: https://djl-analysis.deepsymmetry.org/
 - Kaitai Struct: https://kaitai.io/
 - INSTRUCTION.md: C++20 実装パターン
+
+---
+
+## 更新履歴
+
+| 日付 | バージョン | 内容 |
+|------|-----------|------|
+| 2026-01-18 | v1.0 | 初版作成 |
+| 2026-01-18 | v2.0 | Phase 3 完了、OpusProvider 実装 |
+| 2026-01-19 | v3.0 | 全体移植状況の棚卸し、残作業整理 |
+| 2026-01-20 | v4.0 | Phase 4-5 完了、Python Bindings 105 API実装、使用例スクリプト追加 |

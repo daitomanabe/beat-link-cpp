@@ -136,21 +136,16 @@ void DeviceFinder::processPacket(const uint8_t* data, size_t length, const asio:
 
     // Both DEVICE_HELLO and DEVICE_KEEP_ALIVE contain device announcements
     if (*type == PacketType::DEVICE_KEEP_ALIVE || *type == PacketType::DEVICE_HELLO) {
-        if (length < DeviceAnnouncement::PACKET_SIZE) {
-            std::cerr << "DeviceFinder: Ignoring too-short announcement packet" << std::endl;
+        auto announcement = DeviceAnnouncement::create(std::span<const uint8_t>(data, length), sender);
+        if (!announcement) {
+            std::cerr << "DeviceFinder: Failed to parse announcement packet" << std::endl;
             return;
         }
 
-        try {
-            DeviceAnnouncement announcement(data, DeviceAnnouncement::PACKET_SIZE, sender);
-
-            if (announcement.isOpusQuad()) {
-                createAndProcessOpusAnnouncements(data, length, sender);
-            } else {
-                processAnnouncement(announcement);
-            }
-        } catch (const std::exception& e) {
-            std::cerr << "DeviceFinder: Error processing announcement: " << e.what() << std::endl;
+        if (announcement->isOpusQuad()) {
+            createAndProcessOpusAnnouncements(data, length, sender);
+        } else {
+            processAnnouncement(*announcement);
         }
         return;
     }
@@ -182,16 +177,17 @@ void DeviceFinder::processAnnouncement(const DeviceAnnouncement& announcement) {
 
 void DeviceFinder::createAndProcessOpusAnnouncements(const uint8_t* data, size_t length, const asio::ip::address_v4& sender) {
     for (int i = 1; i <= 4; ++i) {
-        try {
-            DeviceAnnouncement announcement(data, DeviceAnnouncement::PACKET_SIZE, sender, i);
-            bool isNew = isDeviceNew(announcement);
-            updateDevices(announcement);
+        auto announcement = DeviceAnnouncement::create(std::span<const uint8_t>(data, length), sender, i);
+        if (!announcement) {
+            std::cerr << "DeviceFinder: Failed to parse Opus announcement" << std::endl;
+            continue;
+        }
 
-            if (isNew) {
-                deliverFoundAnnouncement(announcement);
-            }
-        } catch (const std::exception& e) {
-            std::cerr << "DeviceFinder: Error processing Opus announcement: " << e.what() << std::endl;
+        bool isNew = isDeviceNew(*announcement);
+        updateDevices(*announcement);
+
+        if (isNew) {
+            deliverFoundAnnouncement(*announcement);
         }
     }
 }
