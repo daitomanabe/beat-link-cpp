@@ -14,6 +14,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 # Options
 option(BEATLINK_BUILD_PYTHON "Build Python bindings with nanobind" OFF)
+option(BEATLINK_BUILD_TESTS "Build unit tests with Catch2" OFF)
 option(BEATLINK_USE_SQLCIPHER "Use SQLCipher for encrypted database support" OFF)
 
 include(FetchContent)
@@ -265,6 +266,32 @@ if(BEATLINK_BUILD_PYTHON)
     nanobind_add_module(beatlink_py src/python_bindings.cpp)
     target_link_libraries(beatlink_py PRIVATE beatlink)
     target_include_directories(beatlink_py PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+endif()
+
+# Unit tests with Catch2
+if(BEATLINK_BUILD_TESTS)
+    FetchContent_Declare(
+        Catch2
+        GIT_REPOSITORY https://github.com/catchorg/Catch2.git
+        GIT_TAG v3.5.0
+    )
+    FetchContent_MakeAvailable(Catch2)
+
+    # Test executable
+    add_executable(beatlink_tests
+        tests/test_main.cpp
+        tests/test_beat.cpp
+        tests/test_cdj_status.cpp
+        tests/test_util.cpp
+        tests/test_data_structures.cpp
+    )
+    target_link_libraries(beatlink_tests PRIVATE beatlink Catch2::Catch2WithMain)
+    target_include_directories(beatlink_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+
+    # Enable CTest
+    include(CTest)
+    include(Catch)
+    catch_discover_tests(beatlink_tests)
 endif()
 
 # Installation

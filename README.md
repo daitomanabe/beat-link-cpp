@@ -1,71 +1,232 @@
-# Beat-Link C++ マニュアル
+# Beat-Link C++
 
-Pioneer DJ Link プロトコルライブラリの C++ 実装です。
-CDJ、XDJ、DJM などの Pioneer DJ 機器とネットワーク経由で通信し、BPM、ビート、再生状態などの情報を取得できます。
+[![C++20](https://img.shields.io/badge/C%2B%2B-20-blue.svg)](https://isocpp.org/std/the-standard)
+[![License](https://img.shields.io/badge/License-EPL--2.0-green.svg)](LICENSE)
 
-## 目次
+A C++20 implementation of the Pioneer DJ Link protocol.
+Communicate with CDJ, XDJ, and DJM devices over the network to retrieve BPM, beats, playback status, track metadata, waveforms, and more.
 
-1. [必要環境](#必要環境)
-2. [ビルド方法](#ビルド方法)
-3. [アプリケーション](#アプリケーション)
-4. [ライブラリの使い方](#ライブラリの使い方)
-5. [API リファレンス](#api-リファレンス)
-6. [フロー図](#フロー図)
-7. [トラブルシューティング](#トラブルシューティング)
+C++20 による Pioneer DJ Link プロトコルライブラリの実装です。
+CDJ、XDJ、DJM などの Pioneer DJ 機器とネットワーク経由で通信し、BPM、ビート、再生状態、トラックメタデータ、波形データなどの情報を取得できます。
+
+## Features / 機能
+
+- **Device Discovery** - Automatic detection of DJ Link devices on the network
+- **Beat Synchronization** - Real-time beat and tempo information
+- **Track Metadata** - Title, artist, BPM, key, cue points, and more
+- **Waveform Data** - Preview and detailed waveforms
+- **Album Art** - JPEG/PNG artwork retrieval
+- **Python Bindings** - Full-featured Python API (105+ functions)
+- **Cross-Platform** - macOS, Linux, Windows support
+
+## Table of Contents / 目次
+
+1. [Requirements / 必要環境](#requirements--必要環境)
+2. [Build / ビルド方法](#build--ビルド方法)
+3. [Quick Start / クイックスタート](#quick-start--クイックスタート)
+4. [Python Usage / Python での使用](#python-usage--python-での使用)
+5. [Applications / アプリケーション](#applications--アプリケーション)
+6. [API Reference / API リファレンス](#api-reference--api-リファレンス)
+7. [Testing / テスト](#testing--テスト)
+8. [Troubleshooting / トラブルシューティング](#troubleshooting--トラブルシューティング)
 
 ---
 
-## 必要環境
+## Requirements / 必要環境
 
 - **OS**: macOS, Linux, Windows
-- **コンパイラ**: C++17 対応 (GCC 7+, Clang 5+, MSVC 2017+)
-- **CMake**: 3.14 以上
-- **ネットワーク**: DJ Link 機器と同じネットワークに接続
+- **Compiler**: C++20 compatible (GCC 11+, Clang 14+, MSVC 2022+)
+- **CMake**: 3.15+
+- **Python**: 3.8+ (for Python bindings)
+- **Network**: Same network as DJ Link devices
 
-### 自動取得される依存ライブラリ
+### Auto-fetched Dependencies / 自動取得される依存ライブラリ
 
-以下のライブラリは CMake が自動的にダウンロードします：
+CMake automatically downloads the following libraries:
 
-- Asio (Standalone, Non-Boost)
-- GLFW (GUI用)
-- Dear ImGui (GUI用)
+| Library | Purpose |
+|---------|---------|
+| Asio | Network I/O (standalone, non-Boost) |
+| nanobind | Python bindings |
+| miniz | ZIP extraction |
+| sqlite3 | Database access |
+| kaitai_struct | Binary parsing |
+| stb_image | Image decoding (JPEG/PNG) |
+| GLFW + ImGui | GUI (optional) |
+| Catch2 | Unit testing (optional) |
 
 ---
 
-## ビルド方法
+## Build / ビルド方法
 
-### 基本的なビルド手順
+### Basic Build / 基本的なビルド
 
 ```bash
-# プロジェクトディレクトリに移動
-cd cpp
+cd beat-link-cpp
+mkdir build && cd build
 
-# ビルドディレクトリを作成
-mkdir build
-cd build
-
-# CMake 設定（依存ライブラリの自動ダウンロード含む）
+# Basic build (library + examples)
 cmake ..
+make -j$(nproc)
 
-# ビルド実行
-make -j4
+# With Python bindings
+cmake .. -DBEATLINK_BUILD_PYTHON=ON
+make -j$(nproc) beatlink_py
+
+# With unit tests
+cmake .. -DBEATLINK_BUILD_TESTS=ON
+make -j$(nproc) beatlink_tests
+ctest
 ```
 
-### ビルド成果物
+### Build Outputs / ビルド成果物
 
-ビルドが完了すると、以下のファイルが生成されます：
-
-| ファイル | 説明 |
-|----------|------|
-| `libbeatlink.a` | 静的ライブラリ |
-| `beatlink_example` | コマンドライン版サンプル |
-| `beatlink_gui` | GUI版モニター（Dear ImGui） |
+| File | Description |
+|------|-------------|
+| `libbeatlink.a` | Static library |
+| `beatlink_example` | CLI example |
+| `beatlink_gui` | GUI monitor (Dear ImGui) |
+| `beatlink_cli` | CLI tool with --schema support |
+| `beatlink_py.*.so` | Python module (if enabled) |
+| `beatlink_tests` | Unit tests (if enabled) |
 
 ---
 
-## アプリケーション
+## Quick Start / クイックスタート
 
-### GUI版モニター (beatlink_gui)
+### C++ Example
+
+```cpp
+#include <beatlink/BeatLink.hpp>
+#include <iostream>
+
+int main() {
+    auto& deviceFinder = beatlink::DeviceFinder::getInstance();
+    auto& beatFinder = beatlink::BeatFinder::getInstance();
+
+    // Device discovery callback
+    deviceFinder.addDeviceFoundListener([](const beatlink::DeviceAnnouncement& device) {
+        std::cout << "Found: " << device.getDeviceName()
+                  << " (#" << device.getDeviceNumber() << ")\n";
+    });
+
+    // Beat callback
+    beatFinder.addBeatListener([](const beatlink::Beat& beat) {
+        std::cout << "BPM: " << beat.getEffectiveTempo()
+                  << " Beat: " << beat.getBeatWithinBar() << "/4\n";
+    });
+
+    deviceFinder.start();
+    beatFinder.start();
+
+    // Run until Ctrl+C
+    std::this_thread::sleep_for(std::chrono::hours(24));
+
+    beatFinder.stop();
+    deviceFinder.stop();
+    return 0;
+}
+```
+
+---
+
+## Python Usage / Python での使用
+
+### Installation / インストール
+
+```bash
+# Build the Python module
+cd build
+cmake .. -DBEATLINK_BUILD_PYTHON=ON
+make beatlink_py
+
+# The module will be at: build/beatlink_py.cpython-*.so
+# Add build directory to PYTHONPATH or copy the .so file
+```
+
+### Basic Example / 基本的な使用例
+
+```python
+import sys
+sys.path.insert(0, './build')  # Add build directory
+
+import beatlink_py as bl
+
+# Define callbacks
+def on_beat(beat):
+    print(f"Beat: {beat.effective_bpm:.2f} BPM, {beat.beat_in_bar}/4")
+
+def on_device_found(device):
+    print(f"Found: {device.device_name} (#{device.device_number})")
+
+# Register listeners
+bl.add_beat_listener(on_beat)
+bl.add_device_found_listener(on_device_found)
+
+# Start services
+bl.start_device_finder()
+bl.start_beat_finder()
+
+# Keep running
+import time
+try:
+    while True:
+        time.sleep(1)
+except KeyboardInterrupt:
+    pass
+
+# Cleanup
+bl.stop_beat_finder()
+bl.stop_device_finder()
+bl.clear_all_listeners()
+```
+
+### Track Metadata Example / トラックメタデータの取得
+
+```python
+import beatlink_py as bl
+
+bl.start_device_finder()
+bl.start_virtual_cdj()
+bl.start_metadata_finder()
+
+import time
+time.sleep(3)  # Wait for connection
+
+# Get metadata for player 1
+metadata = bl.get_track_metadata(1)
+if metadata:
+    print(f"Title:  {metadata.title}")
+    print(f"Artist: {metadata.artist}")
+    print(f"BPM:    {metadata.tempo / 100:.2f}")
+    print(f"Key:    {metadata.key}")
+
+# Get cue points
+cues = bl.get_cue_list(1)
+if cues:
+    for cue in cues.entries:
+        cue_type = "Loop" if cue.is_loop else f"HotCue {cue.hot_cue_number}"
+        print(f"  {cue_type} @ {cue.cue_time_ms}ms")
+
+# Cleanup
+bl.stop_metadata_finder()
+bl.stop_virtual_cdj()
+bl.stop_device_finder()
+```
+
+### Python Examples / サンプルスクリプト
+
+See the `examples/` directory:
+
+- **beat_monitor.py** - Real-time beat visualization
+- **track_info.py** - Display track metadata, cue points, beat grid
+- **waveform_export.py** - Export waveform and album art data
+
+---
+
+## Applications / アプリケーション
+
+### GUI Monitor / GUI版モニター (beatlink_gui)
 
 グラフィカルな DJ Link モニターアプリケーションです。
 
@@ -323,9 +484,50 @@ namespace beatlink {
 
 ---
 
-## トラブルシューティング
+## Testing / テスト
 
-### ポートが使用中
+### C++ Unit Tests / C++ユニットテスト
+
+Build and run unit tests with Catch2:
+
+```bash
+cd build
+cmake .. -DBEATLINK_BUILD_TESTS=ON
+make beatlink_tests
+./beatlink_tests           # Run all tests
+./beatlink_tests -l        # List all tests
+./beatlink_tests [Beat]    # Run only Beat tests
+ctest                      # Run via CTest
+```
+
+Test coverage includes:
+- **Packet parsing**: Beat, CdjStatus, MixerStatus, DeviceAnnouncement
+- **Utility functions**: Pitch conversion, byte operations, time calculations
+- **Data structures**: BeatGrid, CueList, Waveform, DataReference
+
+### Python Tests / Pythonテスト
+
+```bash
+cd tests
+python golden_test.py           # CLI and Python binding tests
+python communication_test.py    # Network communication tests
+python real_device_test.py      # Real device integration tests
+```
+
+### API Documentation / APIドキュメント
+
+Generate Doxygen documentation:
+
+```bash
+doxygen Doxyfile
+open docs/api/html/index.html
+```
+
+---
+
+## Troubleshooting / トラブルシューティング
+
+### Port in use / ポートが使用中
 
 ```
 Failed to start DeviceFinder (port 50000 may be in use)

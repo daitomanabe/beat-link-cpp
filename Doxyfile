@@ -1,0 +1,59 @@
+# Doxyfile for Beat Link C++
+# Generate API documentation with: doxygen Doxyfile
+
+PROJECT_NAME           = "Beat Link C++"
+PROJECT_NUMBER         = 0.2.0
+PROJECT_BRIEF          = "C++20 implementation of the Beat Link protocol for Pioneer DJ equipment"
+OUTPUT_DIRECTORY       = docs/api
+CREATE_SUBDIRS         = NO
+
+# Input settings
+INPUT                  = include/beatlink src README.md
+INPUT_ENCODING         = UTF-8
+FILE_PATTERNS          = *.hpp *.cpp *.h *.md
+RECURSIVE              = YES
+EXCLUDE                = build external
+
+# Documentation extraction
+EXTRACT_ALL            = YES
+EXTRACT_PRIVATE        = NO
+EXTRACT_STATIC         = YES
+EXTRACT_LOCAL_CLASSES  = YES
+
+# Source browsing
+SOURCE_BROWSER         = YES
+INLINE_SOURCES         = NO
+REFERENCED_BY_RELATION = YES
+REFERENCES_RELATION    = YES
+
+# Output formats
+GENERATE_HTML          = YES
+GENERATE_LATEX         = NO
+GENERATE_XML           = NO
+
+# HTML settings
+HTML_OUTPUT            = html
+HTML_COLORSTYLE        = AUTO_DARK
+HTML_TIMESTAMP         = YES
+SEARCHENGINE           = YES
+
+# Diagrams
+HAVE_DOT               = NO
+CLASS_DIAGRAMS         = YES
+COLLABORATION_GRAPH    = NO
+INCLUDE_GRAPH          = NO
+INCLUDED_BY_GRAPH      = NO
+
+# Warnings
+WARN_IF_UNDOCUMENTED   = YES
+WARN_IF_DOC_ERROR      = YES
+WARN_NO_PARAMDOC       = NO
+
+# Preprocessing
+ENABLE_PREPROCESSING   = YES
+MACRO_EXPANSION        = YES
+PREDEFINED             = BEATLINK_HAS_SQLCIPHER
+
+# Markdown support
+USE_MDFILE_AS_MAINPAGE = README.md
+MARKDOWN_SUPPORT       = YES
