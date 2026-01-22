@@ -8,7 +8,7 @@
 #include <cstring>
 #include <iostream>
 #include <optional>
-#include <span>
+#include <beatlink/Span.hpp>
 #include <unordered_set>
 
 #if defined(__APPLE__) || defined(__linux__)

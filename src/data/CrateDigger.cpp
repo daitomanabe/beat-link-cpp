@@ -9,7 +9,7 @@
 #include <chrono>
 #include <cmath>
 #include <filesystem>
-#include <format>
+#include <fmt/format.h>
 #include <iostream>
 
 namespace beatlink::data {
@@ -121,7 +121,7 @@ CrateDigger::CrateDigger() {
                 auto connection = std::make_shared<SQLiteConnection>(target.string());
                 {
                     std::lock_guard<std::mutex> lock(sqliteMutex_);
-                    if (sqliteConnections_.contains(slot)) {
+                    if (sqliteConnections_.find(slot) != sqliteConnections_.end()) {
                         return;
                     }
                     sqliteConnections_[slot] = connection;
@@ -131,7 +131,7 @@ CrateDigger::CrateDigger() {
                 auto database = std::make_shared<Database>(target.string());
                 {
                     std::lock_guard<std::mutex> lock(databasesMutex_);
-                    if (databases_.contains(slot)) {
+                    if (databases_.find(slot) != databases_.end()) {
                         return;
                     }
                     databases_[slot] = database;
@@ -187,7 +187,7 @@ std::string CrateDigger::humanReadableByteCount(int64_t bytes, bool si) {
     const char prefix = prefixes.at(static_cast<size_t>(exp - 1));
     const std::string suffix = si ? std::string(1, prefix) : (std::string(1, prefix) + "i");
     const double value = bytes / std::pow(unit, exp);
-    return std::format("{:.1f} {}B", value, suffix);
+    return fmt::format("{:.1f} {}B", value, suffix);
 }
 
 bool CrateDigger::canUseDatabase(const SlotReference& slot) const {

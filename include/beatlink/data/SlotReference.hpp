@@ -1,6 +1,6 @@
 #pragma once
 
-#include <format>
+#include <fmt/format.h>
 #include <functional>
 #include <string>
 
@@ -28,7 +28,7 @@ public:
     static SlotReference getSlotReference(const class DataReference& reference);
 
     std::string toString() const {
-        return std::format("SlotReference[player:{}, slot:{}]", player_, static_cast<int>(slot_));
+        return fmt::format("SlotReference[player:{}, slot:{}]", player_, static_cast<int>(slot_));
     }
 
     bool operator==(const SlotReference& other) const {

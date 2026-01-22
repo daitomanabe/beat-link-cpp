@@ -2,8 +2,8 @@
 
 #include <array>
 #include <cstdint>
-#include <format>
-#include <span>
+#include <fmt/format.h>
+#include "../Span.hpp"
 #include <string>
 #include <vector>
 

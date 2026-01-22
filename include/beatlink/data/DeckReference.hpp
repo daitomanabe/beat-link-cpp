@@ -1,6 +1,6 @@
 #pragma once
 
-#include <format>
+#include <fmt/format.h>
 #include <functional>
 
 namespace beatlink::data {
@@ -20,7 +20,7 @@ public:
     int getHotCue() const { return hotCue_; }
 
     std::string toString() const {
-        return std::format("DeckReference[player:{}, hotCue:{}]", player_, hotCue_);
+        return fmt::format("DeckReference[player:{}, hotCue:{}]", player_, hotCue_);
     }
 
     bool operator==(const DeckReference& other) const {

@@ -2,7 +2,7 @@
 #include "beatlink/VirtualCdj.hpp"
 
 #include <cmath>
-#include <format>
+#include <fmt/format.h>
 
 namespace beatlink {
 
@@ -47,7 +47,7 @@ bool PrecisePosition::isBeatWithinBarMeaningful() const {
 }
 
 std::string PrecisePosition::toString() const {
-    return std::format(
+    return fmt::format(
         "Precise position: Device {}, name: {}, pitch: {:+.2f}%, track BPM: {:.1f}, effective BPM: {:.1f}",
         deviceNumber_,
         deviceName_,

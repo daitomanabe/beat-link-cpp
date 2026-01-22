@@ -2,7 +2,7 @@
 
 #include <algorithm>
 #include <cctype>
-#include <format>
+#include <fmt/format.h>
 #include <iostream>
 #include <mutex>
 #include <optional>
@@ -136,7 +136,7 @@ MediaDetails::MediaDetails(const uint8_t* packet, size_t length)
 
     if (rawBytes_.size() < MINIMUM_PACKET_SIZE) {
         throw std::invalid_argument(
-            std::format("Unable to create MediaDetails, packet too short: need {} bytes, got {}",
+            fmt::format("Unable to create MediaDetails, packet too short: need {} bytes, got {}",
                         MINIMUM_PACKET_SIZE, rawBytes_.size()));
     }
 
@@ -148,7 +148,7 @@ MediaDetails::MediaDetails(const uint8_t* packet, size_t length)
 
     {
         std::lock_guard<std::mutex> lock(expectedMediaPacketSizesMutex);
-        if (!expectedMediaPacketSizes.contains(rawBytes_.size())) {
+        if (expectedMediaPacketSizes.find(rawBytes_.size()) == expectedMediaPacketSizes.end()) {
             std::cerr << "Processing Media response packets with unexpected length " << rawBytes_.size() << ".\n";
             expectedMediaPacketSizes.insert(rawBytes_.size());
         }
@@ -158,14 +158,14 @@ MediaDetails::MediaDetails(const uint8_t* packet, size_t length)
     auto slot = trackSourceSlotFromProtocol(rawBytes_[0x2b]);
     if (!slot) {
         throw std::invalid_argument(
-            std::format("Unrecognized slot for media response: {}", rawBytes_[0x2b]));
+            fmt::format("Unrecognized slot for media response: {}", rawBytes_[0x2b]));
     }
     slotReference_ = data::SlotReference::getSlotReference(hostPlayer, *slot);
 
     auto type = trackTypeFromProtocol(rawBytes_[0xaa]);
     if (!type) {
         throw std::invalid_argument(
-            std::format("Unrecognized media type for media response: {}", rawBytes_[0xaa]));
+            fmt::format("Unrecognized media type for media response: {}", rawBytes_[0xaa]));
     }
     mediaType_ = *type;
 
@@ -216,7 +216,7 @@ MediaDetails::MediaDetails(const data::SlotReference& slotReference,
 }
 
 std::string MediaDetails::toString() const {
-    return std::format(
+    return fmt::format(
         "MediaDetails[slotReference:{}, name:{}, creationDate:{}, mediaType:{}, trackCount:{}, "
         "playlistCount:{}, totalSize:{}, freeSpace:{}]",
         slotReference_.toString(), name_, creationDate_, static_cast<int>(mediaType_), trackCount_, playlistCount_,

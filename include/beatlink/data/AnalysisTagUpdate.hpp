@@ -1,6 +1,6 @@
 #pragma once
 
-#include <format>
+#include <fmt/format.h>
 #include <memory>
 #include <string>
 
@@ -27,7 +27,7 @@ public:
     std::shared_ptr<AnalysisTag> analysisTag;
 
     std::string toString() const {
-        return std::format("AnalysisTagUpdate[player:{}, fileExtension:{}, typeTag:{}, analysisTag:{}]",
+        return fmt::format("AnalysisTagUpdate[player:{}, fileExtension:{}, typeTag:{}, analysisTag:{}]",
                            player, fileExtension, typeTag,
                            analysisTag ? analysisTag->toString() : "null");
     }

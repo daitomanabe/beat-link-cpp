@@ -1,6 +1,6 @@
 #pragma once
 
-#include <format>
+#include <fmt/format.h>
 #include <string>
 
 namespace beatlink::data {
@@ -27,7 +27,7 @@ public:
     }
 
     std::string toString() const {
-        return std::format("PlaybackState[player:{}, position:{}, playing:{}]",
+        return fmt::format("PlaybackState[player:{}, position:{}, playing:{}]",
                            player, position, playing ? "true" : "false");
     }
 };

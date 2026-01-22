@@ -138,7 +138,7 @@ Color WaveformPreview::segmentColor(int segment, bool front) const {
 }
 
 std::string WaveformPreview::toString() const {
-    return std::format("WaveformPreview[dataReference={}, style:{}, size:{}, segments:{}]",
+    return fmt::format("WaveformPreview[dataReference={}, style:{}, size:{}, segments:{}]",
                        dataReference.toString(), static_cast<int>(style_), data_.size(), segmentCount_);
 }
 

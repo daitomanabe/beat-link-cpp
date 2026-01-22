@@ -8,7 +8,7 @@
 #include <cstring>
 #include <optional>
 #include <sstream>
-#include <span>
+#include "Span.hpp"
 
 #include "PacketTypes.hpp"
 

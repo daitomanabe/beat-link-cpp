@@ -3,9 +3,9 @@
 #include "DeviceUpdate.hpp"
 #include "Util.hpp"
 
-#include <format>
+#include <fmt/format.h>
 #include <optional>
-#include <span>
+#include "Span.hpp"
 
 namespace beatlink {
 
@@ -268,7 +268,7 @@ public:
     }
 
     std::string toString() const override {
-        return std::format(
+        return fmt::format(
             "CdjStatus: Device {}, name: {}, playing: {}, master: {}, synced: {}, BPM: {:.2f}, effective BPM: {:.2f}, pitch: {:+.2f}%, beat: {}",
             deviceNumber_,
             deviceName_,

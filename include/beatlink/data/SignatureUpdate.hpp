@@ -1,6 +1,6 @@
 #pragma once
 
-#include <format>
+#include <fmt/format.h>
 #include <string>
 
 namespace beatlink::data {
@@ -17,7 +17,7 @@ public:
     std::string signature;
 
     std::string toString() const {
-        return std::format("SignatureUpdate[player:{}, signature:{}]", player, signature);
+        return fmt::format("SignatureUpdate[player:{}, signature:{}]", player, signature);
     }
 };
 

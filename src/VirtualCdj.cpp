@@ -10,7 +10,7 @@
 #include <cmath>
 #include <condition_variable>
 #include <cstring>
-#include <format>
+#include <fmt/format.h>
 #include <iostream>
 #include <optional>
 
@@ -1042,7 +1042,7 @@ void VirtualCdj::sendLoadTrackCommand(const DeviceUpdate& target,
     payload[0x0b] = static_cast<uint8_t>(sourceType);
     payload[0x21] = static_cast<uint8_t>(target.getDeviceNumber() - 1);
 
-    if (target.getDeviceName().starts_with("XDJ-XZ")) {
+    if (target.getDeviceName().rfind("XDJ-XZ", 0) == 0) {
         payload[0x01] = 0x01;
         payload[0x2c] = 0x32;
         const auto devices = DeviceFinder::getInstance().getCurrentDevices();

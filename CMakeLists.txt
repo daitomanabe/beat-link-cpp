@@ -7,8 +7,8 @@ if(POLICY CMP0135)
     cmake_policy(SET CMP0135 NEW)  # Use timestamps from download time
 endif()
 
-# C++20 Standard
-set(CMAKE_CXX_STANDARD 20)
+# C++17 Standard
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
@@ -75,6 +75,14 @@ FetchContent_MakeAvailable(stb)
 # Create interface library for stb_image
 add_library(stb_image INTERFACE)
 target_include_directories(stb_image INTERFACE ${stb_SOURCE_DIR})
+
+# fmt - String formatting library (C++17 compatible std::format alternative)
+FetchContent_Declare(
+    fmt
+    GIT_REPOSITORY https://github.com/fmtlib/fmt.git
+    GIT_TAG        10.2.1
+)
+FetchContent_MakeAvailable(fmt)
 
 # SQLCipher (optional)
 if(BEATLINK_USE_SQLCIPHER)
@@ -214,6 +222,7 @@ target_link_libraries(beatlink PUBLIC
     kaitai_struct_cpp_stl_runtime
     utf8proc
     stb_image
+    fmt::fmt
 )
 
 # SQLCipher linking (optional)

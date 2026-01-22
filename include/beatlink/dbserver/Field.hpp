@@ -3,7 +3,7 @@
 #include <asio.hpp>
 #include <cstdint>
 #include <memory>
-#include <span>
+#include "../Span.hpp"
 #include <string>
 #include <vector>
 

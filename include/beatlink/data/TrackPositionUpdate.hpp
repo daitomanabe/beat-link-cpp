@@ -1,6 +1,6 @@
 #pragma once
 
-#include <format>
+#include <fmt/format.h>
 #include <memory>
 
 #include "BeatGrid.hpp"
@@ -51,7 +51,7 @@ public:
     }
 
     std::string toString() const {
-        return std::format(
+        return fmt::format(
             "TrackPositionUpdate[timestamp:{}, milliseconds:{}, beatNumber:{}, definitive:{}, playing:{}, pitch:{:.6f}, reverse:{}, beatGrid:{}, precise:{}, fromBeat:{}]",
             timestamp,
             milliseconds,

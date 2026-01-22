@@ -1,6 +1,6 @@
 #pragma once
 
-#include <format>
+#include <fmt/format.h>
 #include <memory>
 #include <string>
 
@@ -17,7 +17,7 @@ public:
     }
 
     std::string toString() const {
-        return std::format("TrackMetadataUpdate[player:{}, metadata:{}]", player,
+        return fmt::format("TrackMetadataUpdate[player:{}, metadata:{}]", player,
                            metadata ? metadata->toString() : std::string("null"));
     }
 

@@ -1,6 +1,6 @@
 #pragma once
 
-#include <format>
+#include <fmt/format.h>
 #include <functional>
 #include <string>
 
@@ -61,7 +61,7 @@ public:
     }
 
     std::string toString() const {
-        return std::format("DataReference[player:{}, slot:{}, rekordboxId:{}, trackType:{}]",
+        return fmt::format("DataReference[player:{}, slot:{}, rekordboxId:{}, trackType:{}]",
                            player_, static_cast<int>(slot_), rekordboxId_, static_cast<int>(trackType_));
     }
 

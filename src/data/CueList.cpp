@@ -84,7 +84,7 @@ bool CueList::Entry::operator==(const Entry& other) const {
 }
 
 std::string CueList::Entry::toString() const {
-    return std::format("CueEntry[hotCue:{}, isLoop:{}, cuePos:{}, loopPos:{}, comment:{}]",
+    return fmt::format("CueEntry[hotCue:{}, isLoop:{}, cuePos:{}, loopPos:{}, comment:{}]",
                        hotCueNumber, isLoop, cuePosition, loopPosition, comment);
 }
 
@@ -175,7 +175,7 @@ const CueList::Entry* CueList::findEntryAfter(int64_t milliseconds) const {
 }
 
 std::string CueList::toString() const {
-    return std::format("CueList[entries:{}]", entries_.size());
+    return fmt::format("CueList[entries:{}]", entries_.size());
 }
 
 std::optional<Color> CueList::expectedEmbeddedColor(int colorCode) {

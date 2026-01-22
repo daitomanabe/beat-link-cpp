@@ -1,7 +1,7 @@
 #include "beatlink/Beat.hpp"
 #include "beatlink/VirtualCdj.hpp"
 
-#include <format>
+#include <fmt/format.h>
 
 namespace beatlink {
 
@@ -22,7 +22,7 @@ bool Beat::isSynced() const {
 }
 
 std::string Beat::toString() const {
-    return std::format(
+    return fmt::format(
         "Beat: Device {}, name: {}, pitch: {:+.2f}%, track BPM: {:.1f}, effective BPM: {:.1f}, beat within bar: {}",
         deviceNumber_,
         deviceName_,

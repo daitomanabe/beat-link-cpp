@@ -1,7 +1,7 @@
 #include "beatlink/dbserver/Message.hpp"
 #include "beatlink/dbserver/DataReader.hpp"
 
-#include <format>
+#include <fmt/format.h>
 #include <sstream>
 #include <stdexcept>
 
@@ -297,7 +297,7 @@ Message Message::read(DataReader& reader) {
 std::string Message::toString() const {
     std::ostringstream result;
     result << "Message: [transaction: " << transaction.getValue();
-    result << std::format(", type: 0x{:04x} (", messageType.getValue());
+    result << fmt::format(", type: 0x{:04x} (", messageType.getValue());
     if (knownType) {
         const auto* info = getKnownTypeInfo(*knownType);
         if (info) {
@@ -312,18 +312,18 @@ std::string Message::toString() const {
 
     for (size_t i = 0; i < arguments.size(); ++i) {
         const auto& arg = arguments[i];
-        result << std::format("{:4d}: ", static_cast<int>(i + 1));
+        result << fmt::format("{:4d}: ", static_cast<int>(i + 1));
         if (auto num = std::dynamic_pointer_cast<NumberField>(arg)) {
             const auto value = num->getValue();
-            result << std::format("number: {:10d} (0x{:08x})", value, value);
+            result << fmt::format("number: {:10d} (0x{:08x})", value, value);
         } else if (auto bin = std::dynamic_pointer_cast<BinaryField>(arg)) {
-            result << std::format("blob length {}:", bin->getSize());
+            result << fmt::format("blob length {}:", bin->getSize());
             auto bytes = bin->getValue();
             for (auto b : bytes) {
-                result << std::format(" {:02x}", b);
+                result << fmt::format(" {:02x}", b);
             }
         } else if (auto str = std::dynamic_pointer_cast<StringField>(arg)) {
-            result << std::format("string length {}: \"{}\"", str->getSize(), str->getValue());
+            result << fmt::format("string length {}: \"{}\"", str->getSize(), str->getValue());
         } else {
             result << "unknown: " << arg->toString();
         }
@@ -343,7 +343,7 @@ std::string Message::toString() const {
                 }
             }
         }
-        result << std::format(" [{}]\n", argDescription);
+        result << fmt::format(" [{}]\n", argDescription);
     }
     result << "]";
     return result.str();

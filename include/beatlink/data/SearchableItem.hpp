@@ -1,6 +1,6 @@
 #pragma once
 
-#include <format>
+#include <fmt/format.h>
 #include <string>
 
 namespace beatlink::data {
@@ -17,7 +17,7 @@ public:
     const std::string& getLabel() const { return label_; }
 
     std::string toString() const {
-        return std::format("SearchableItem[id:{}, label:{}]", id_, label_);
+        return fmt::format("SearchableItem[id:{}, label:{}]", id_, label_);
     }
 
     bool operator==(const SearchableItem& other) const {

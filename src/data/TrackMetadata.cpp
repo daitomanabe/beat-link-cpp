@@ -168,7 +168,7 @@ bool TrackMetadata::operator==(const TrackMetadata& other) const {
 }
 
 std::string TrackMetadata::toString() const {
-    return std::format("TrackMetadata[reference:{}, title:{}]", trackReference_.toString(), title_);
+    return fmt::format("TrackMetadata[reference:{}, title:{}]", trackReference_.toString(), title_);
 }
 
 std::shared_ptr<TrackMetadata> TrackMetadata::Builder::build() {

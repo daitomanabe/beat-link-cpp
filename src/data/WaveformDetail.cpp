@@ -152,7 +152,7 @@ Color WaveformDetail::segmentColor(int segment, int scale) const {
 }
 
 std::string WaveformDetail::toString() const {
-    return std::format("WaveformDetail[dataReference={}, size:{}]",
+    return fmt::format("WaveformDetail[dataReference={}, size:{}]",
                        dataReference.toString(), data_.size());
 }
 

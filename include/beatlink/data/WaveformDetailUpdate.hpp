@@ -1,6 +1,6 @@
 #pragma once
 
-#include <format>
+#include <fmt/format.h>
 #include <memory>
 #include <string>
 
@@ -17,7 +17,7 @@ public:
     }
 
     std::string toString() const {
-        return std::format("WaveformDetailUpdate[player:{}, detail:{}]", player,
+        return fmt::format("WaveformDetailUpdate[player:{}, detail:{}]", player,
                            detail ? detail->toString() : std::string("null"));
     }
 

@@ -1,7 +1,7 @@
 #pragma once
 
 #include <cstdint>
-#include <format>
+#include <fmt/format.h>
 #include <string>
 
 #include "SearchableItem.hpp"
@@ -15,7 +15,7 @@ struct Color {
     uint8_t a{255};
 
     std::string toString() const {
-        return std::format("Color[r:{}, g:{}, b:{}, a:{}]", r, g, b, a);
+        return fmt::format("Color[r:{}, g:{}, b:{}, a:{}]", r, g, b, a);
     }
 
     bool operator==(const Color& other) const {
@@ -40,7 +40,7 @@ public:
     const std::string& getColorName() const { return colorName_; }
 
     std::string toString() const {
-        return std::format("ColorItem[id:{}, label:{}, colorName:{}, color:{}]",
+        return fmt::format("ColorItem[id:{}, label:{}, colorName:{}, color:{}]",
                            getId(), getLabel(), colorName_, color_.toString());
     }
 

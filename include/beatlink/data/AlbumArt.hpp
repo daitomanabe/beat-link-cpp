@@ -1,10 +1,10 @@
 #pragma once
 
 #include <cstdint>
-#include <format>
+#include <fmt/format.h>
 #include <memory>
 #include <optional>
-#include <span>
+#include "../Span.hpp"
 #include <string>
 #include <vector>
 
@@ -73,7 +73,7 @@ public:
     std::pair<int, int> getDimensions() const;
 
     std::string toString() const {
-        return std::format("AlbumArt[artReference={}, size={} bytes, format={}]",
+        return fmt::format("AlbumArt[artReference={}, size={} bytes, format={}]",
                            artReference.toString(), rawBytes_.size(), getImageFormat());
     }
 

@@ -5,9 +5,9 @@
 #include <array>
 #include <vector>
 #include <chrono>
-#include <format>
+#include <fmt/format.h>
 #include <optional>
-#include <span>
+#include "Span.hpp"
 #include <asio.hpp>
 
 #include "Util.hpp"
@@ -149,7 +149,7 @@ public:
      */
     std::string getHardwareAddressString() const {
         auto mac = getHardwareAddress();
-        return std::format("{:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}",
+        return fmt::format("{:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}",
                            mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
     }
 

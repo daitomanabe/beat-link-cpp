@@ -1,7 +1,7 @@
 #pragma once
 
 #include <string>
-#include <format>
+#include <fmt/format.h>
 
 namespace beatlink::data {
 
@@ -15,7 +15,7 @@ public:
     const std::string& getSourcePath() const { return sourcePath_; }
 
     std::string toString() const {
-        return std::format("Database[sourcePath:{}]", sourcePath_);
+        return fmt::format("Database[sourcePath:{}]", sourcePath_);
     }
 
 private:

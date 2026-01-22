@@ -4,7 +4,7 @@
 #include "Util.hpp"
 
 #include <optional>
-#include <span>
+#include "Span.hpp"
 
 namespace beatlink {
 

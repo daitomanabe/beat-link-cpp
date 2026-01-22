@@ -1,7 +1,7 @@
 #pragma once
 
-#include <format>
-#include <span>
+#include <fmt/format.h>
+#include "../Span.hpp"
 #include <string>
 #include <vector>
 
@@ -25,7 +25,7 @@ public:
     std::span<const uint8_t> getPayload() const { return payload_; }
 
     std::string toString() const {
-        return std::format("AnalysisTag[dataReference:{}, fileExtension:{}, typeTag:{}, bytes:{}]",
+        return fmt::format("AnalysisTag[dataReference:{}, fileExtension:{}, typeTag:{}, bytes:{}]",
                            dataReference_.toString(), fileExtension_, typeTag_, payload_.size());
     }
 

@@ -2,8 +2,8 @@
 
 #include <algorithm>
 #include <cstdint>
-#include <format>
-#include <span>
+#include <fmt/format.h>
+#include "../Span.hpp"
 #include <stdexcept>
 #include <vector>
 
@@ -109,7 +109,7 @@ public:
     }
 
     std::string toString() const {
-        return std::format("BeatGrid[dataReference:{}, beats:{}]",
+        return fmt::format("BeatGrid[dataReference:{}, beats:{}]",
                            dataReference.toString(), getBeatCount());
     }
 
